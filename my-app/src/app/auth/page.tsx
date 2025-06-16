@@ -1,9 +1,18 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from "next/navigation";
 import styles from './auth.module.css';
-import type { UserOut, UserCreate } from '../../types/User';
+import type { UserOut} from '../../types/User';
+import Image from 'next/image';
+
+interface FastAPIError {
+  loc?: (string | number)[];
+  msg: string;
+  type?: string;
+}
 
 export default function AuthPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'register' | 'login'>('login');
   const [loading, setLoading] = useState(true);
   const [forgot, setForgot] = useState(false);
@@ -88,23 +97,24 @@ export default function AuthPage() {
       </div>
     );
   }
-
-  if (user) {
-    return (
-      <div className={styles.root}>
-        <div className={styles.card} style={{ alignItems: "center", paddingTop: 40, paddingBottom: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>👋</div>
-          <h2 style={{ marginBottom: 8, fontWeight: 800, fontSize: 24 }}>
-            Вітаємо, {user.login}!
-          </h2>
-          <div style={{ marginBottom: 18, fontSize: 16 }}>
-            Ви увійшли як <b>{user.role}</b>. <br />
-            Зареєстровано: {new Date(user.registered_at).toLocaleString()}
-          </div>
-        </div>
-      </div>
-    );
-  }
+// Если пользователь уже авторизован, показываем приветствие
+  // if (user) { 
+  //   
+  //   return (
+  //     <div className={styles.root}>
+  //       <div className={styles.card} style={{ alignItems: "center", paddingTop: 40, paddingBottom: 40 }}>
+  //         <div style={{ fontSize: 48, marginBottom: 12 }}>👋</div>
+  //         <h2 style={{ marginBottom: 8, fontWeight: 800, fontSize: 24 }}>
+  //           Вітаємо, {user.login}!
+  //         </h2>
+  //         <div style={{ marginBottom: 18, fontSize: 16 }}>
+  //           Ви увійшли як <b>{user.role}</b>. <br />
+  //           Зареєстровано: {new Date(user.registered_at).toLocaleString()}
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   async function handleAuth(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -116,11 +126,8 @@ export default function AuthPage() {
     }
 
     try {
-      const endpoint = activeTab === 'register' ? '/api/register' : '/api/login';
-      const payload =
-        activeTab === 'register'
-          ? { login, password } as UserCreate
-          : { login, password };
+      const endpoint = `https://allures-backend-4ab6935da9b4.herokuapp.com/auth/${activeTab}`;
+      const payload = { login, password };
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -128,18 +135,49 @@ export default function AuthPage() {
         body: JSON.stringify(payload),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data?.message || "Сталася помилка. Спробуйте ще раз.");
+        const errorMessage = Array.isArray(data?.detail)
+          ? (data.detail as FastAPIError[]).map(err => err.msg).join("; ")
+          : typeof data?.detail === 'string'
+            ? data.detail
+            : "Сталася помилка. Спробуйте ще раз.";
+
+        setError(errorMessage);
         return;
       }
 
-      const data: UserOut = await res.json();
-      setUser(data);
+      if (activeTab === 'login') {
+        localStorage.setItem("token", data.access_token);
+        setUser({
+          id: 0,
+          login: data.login,
+          role: data.role,
+          registered_at: data.registered_at,
+          is_blocked: false
+        });
+      } else {
+        setUser({
+          id: data.id,
+          login: data.login,
+          role: data.role,
+          registered_at: data.registered_at,
+          is_blocked: data.is_blocked
+        });
+      }
+
       setLogin('');
       setPassword('');
-    } catch (err) {
-      setError("Не вдалося підключитися до сервера. Спробуйте ще раз.");
+      router.push("/"); // <-- редирект на главную страницу
+    } catch (err: unknown) {
+      console.error("Помилка при запиті:", err);
+
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Невідома помилка");
+      }
     }
   }
 
@@ -172,123 +210,125 @@ export default function AuthPage() {
                 Увійти
               </button>
             </div>
-            <form className={styles.form} onSubmit={handleAuth}>
-              <h2 className={styles.title}>
-                {activeTab === 'register' ? 'Зареєструватися' : 'Увійти'}
-              </h2>
-              <input
-                className={styles.input}
-                type="text"
-                placeholder="Логін"
-                value={login}
-                onChange={e => setLogin(e.target.value)}
-                required
-              />
-              <div className={styles.inputRow}>
-                <input
-                  className={styles.input}
-                  type="password"
-                  placeholder="Пароль"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
-                <a
-                  href="#"
-                  className={styles.forgot}
-                  onClick={e => {
-                    e.preventDefault();
-                    setForgot(true);
-                  }}
-                >
-                  Забули пароль?
-                </a>
-              </div>
-              <button type="button" className={styles.googleBtn}>
-                Продовжити з Google
-                <img
-                  src="https://www.svgrepo.com/show/475656/google-color.svg"
-                  alt="Google"
-                  className={styles.googleIcon}
-                />
-              </button>
-              <div className={styles.info}>
-                Увійшовши в систему, ви погоджуєтеся з{' '}
-                <a
-                  href="https://www.privacypolicies.com/live/97b147a3-48dc-4d1e-8ee3-ba19d17f27f2"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Умовами надання послуги та Політикою конфіденційності
-                </a>
-              </div>
-              <button type="submit" className={styles.submitBtn}>
-                {activeTab === 'register' ? 'Зареєструватися' : 'Увійти'}
-              </button>
-            </form>
-            <div className={styles.bottomText}>
-              {activeTab === 'register' ? (
-                <>
-                  Вже маєте обліковий запис?
-                  <a
-                    href="#"
-                    className={styles.registerLink}
-                    onClick={e => {
-                      e.preventDefault();
-                      setActiveTab('login');
-                    }}
-                  >
-                    Увійти
-                  </a>
-                </>
-              ) : (
-                <>
-                  Потрібен обліковий запис?
-                  <a
-                    href="#"
-                    className={styles.registerLink}
-                    onClick={e => {
-                      e.preventDefault();
-                      setActiveTab('register');
-                    }}
-                  >
-                    Зареєструватися
-                  </a>
-                </>
-              )}
-            </div>
-          </>
-        ) : (
-          <form className={styles.form} style={{ minWidth: 280 }}>
-            <h2 className={styles.title} style={{ textAlign: 'center' }}>
-              Скинути пароль
+          <form className={styles.form} onSubmit={handleAuth}>
+            <h2 className={styles.title}>
+              {activeTab === 'register' ? 'Зареєструватися' : 'Увійти'}
             </h2>
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              Будь ласка, введіть адресу електронної пошти, пов'язану з вашим обліковим записом.
-            </div>
             <input
               className={styles.input}
-              type="email"
-              placeholder="Адреса електронної пошти"
+              type="text"
+              placeholder="Логін"
+              value={login}
+              onChange={e => setLogin(e.target.value)}
+              required
             />
-            <button type="submit" className={styles.submitBtn}>
-              Скинути пароль
-            </button>
-            <div className={styles.bottomText}>
+            <div className={styles.inputRow}>
+              <input
+                className={styles.input}
+                type="password"
+                placeholder="Пароль"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
               <a
                 href="#"
-                className={styles.registerLink}
+                className={styles.forgot}
                 onClick={e => {
                   e.preventDefault();
-                  setForgot(false);
+                  setForgot(true);
                 }}
               >
-                Повернутися до входу
+                Забули пароль?
               </a>
             </div>
+            <button type="button" className={styles.googleBtn}>
+              Продовжити з Google
+              <Image
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                alt="Google"
+                width={22}
+                height={22}
+                className={styles.googleIcon}
+              />
+            </button>
+            <div className={styles.info}>
+              <p>{`Увійшовши в систему, ви погоджуєтеся з 'Умовами…'`}</p>
+              <a
+                href="https://www.privacypolicies.com/live/97b147a3-48dc-4d1e-8ee3-ba19d17f27f2"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Умовами надання послуги та Політикою конфіденційності
+              </a>
+            </div>
+            <button type="submit" className={styles.submitBtn}>
+              {activeTab === 'register' ? 'Зареєструватися' : 'Увійти'}
+            </button>
           </form>
-        )}
-      </div>
+          <div className={styles.bottomText}>
+            {activeTab === 'register' ? (
+              <>
+                Вже маєте обліковий запис?
+                <a
+                  href="#"
+                  className={styles.registerLink}
+                  onClick={e => {
+                    e.preventDefault();
+                    setActiveTab('login');
+                  }}
+                >
+                  Увійти
+                </a>
+              </>
+            ) : (
+              <>
+                Потрібен обліковий запис?
+                <a
+                  href="#"
+                  className={styles.registerLink}
+                  onClick={e => {
+                    e.preventDefault();
+                    setActiveTab('register');
+                  }}
+                >
+                  Зареєструватися
+                </a>
+              </>
+            )}
+          </div>
+        </>
+      ) : (
+        <form className={styles.form} style={{ minWidth: 280 }}>
+          <h2 className={styles.title} style={{ textAlign: 'center' }}>
+            Скинути пароль
+          </h2>
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <p>{`Будь ласка, введіть адресу електронної пошти, пов'язану з вашим обліковим записом.`}</p>
+          </div>
+          <input
+            className={styles.input}
+            type="email"
+            placeholder="Адреса електронної пошти"
+          />
+          <button type="submit" className={styles.submitBtn}>
+            Скинути пароль
+          </button>
+          <div className={styles.bottomText}>
+            <a
+              href="#"
+              className={styles.registerLink}
+              onClick={e => {
+                e.preventDefault();
+                setForgot(false);
+              }}
+            >
+              Повернутися до входу
+            </a>
+          </div>
+        </form>
+      )}
     </div>
-  );
+  </div>
+);
 }

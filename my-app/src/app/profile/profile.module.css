@@ -1,0 +1,284 @@
+/* --- HEADER --- */
+.header {
+  width: 100%;
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.menuBtn {
+  background: none;
+  border: none;
+  font-size: 26px;
+  cursor: pointer;
+  color: #222;
+  margin-right: 8px;
+}
+
+.catalogBtn {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 18px;
+}
+
+.logo {
+  width: 37px !important;
+  height: 38px !important;
+  margin-left: 16px !important;
+  position: static;
+}
+
+.searchInput {
+  margin-left: 18px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  font-size: 16px;
+  width: 320px;
+  background: #fafafa;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.voiceBtn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #1976d2;
+  margin-right: 8px;
+}
+
+.findBtn {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: 18px;
+}
+
+.headerIcons {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: 0;
+}
+
+.headerIcon {
+  font-size: 22px;
+  color: #222;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  width: 24px;
+  height: 24px;
+  justify-content: center;
+}
+
+/* --- LAYOUT --- */
+.profileRoot {
+  display: flex;
+  min-height: calc(100vh - 56px);
+  background: #f7f7f9;
+}
+
+.sidebar {
+  width: 270px;
+  background: #fff;
+  border-right: 1px solid #e0e0e0;
+  padding: 32px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-height: calc(100vh - 56px);
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+  padding-left: 18px;
+}
+
+.avatarImg, .profileImg {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.userName {
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.userEmail {
+  font-size: 14px;
+  color: #888;
+}
+
+.menu {
+  font-size: 15px;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+.menuTitle {
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu li {
+  padding: 8px 0;
+  cursor: pointer;
+  color: #333;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu li:hover {
+  color: #1976d2;
+}
+
+.counter {
+  background: #eee;
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 13px;
+  margin-left: 6px;
+}
+
+.content {
+  flex: 1;
+  padding: 40px 32px;
+}
+
+.sectionTitle {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.profileCard {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0001;
+  padding: 32px;
+  margin-bottom: 32px;
+}
+
+.profileImageSection {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.updateBtn {
+  background: #222;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  margin-right: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 22px;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-bottom: 10px;
+}
+
+.imageHint {
+  font-size: 13px;
+  color: #666;
+  margin-top: 6px;
+}
+
+.profileFields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.profileField {
+  background: #f7f7f9;
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.fieldLabel {
+  font-size: 15px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.logoutBtn {
+  background: none;
+  border: none;
+  color: #1976d2;
+  font-size: 17px;
+  margin-top: 18px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.menuIcon {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  margin-right: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.menuDivider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 10px 0 10px 0;
+}
