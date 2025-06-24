@@ -62,7 +62,7 @@ export default function ProfilePage() {
               />
             </div>
             <div>
-              <div className={styles.userName}>Ім'я Прізвище</div>
+              <div className={styles.userName}>Ім&apos;я Прізвище</div>
               <div className={styles.userEmail}>name123@gmail.com</div>
             </div>
           </div>
@@ -134,7 +134,7 @@ export default function ProfilePage() {
             <div className={styles.profileFields}>
               <div className={styles.profileField}>
                 <div className={styles.fieldLabel}>Мій акаунт</div>
-                <div>Ім'я Прізвище</div>
+                <div>Ім&apos;я Прізвище</div>
               </div>
               <div className={styles.profileField}>
                 <div className={styles.fieldLabel}>Особисті дані</div>
