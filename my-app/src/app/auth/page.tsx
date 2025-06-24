@@ -98,23 +98,22 @@ export default function AuthPage() {
     );
   }
 // Если пользователь уже авторизован, показываем приветствие
-  // if (user) { 
-  //   
-  //   return (
-  //     <div className={styles.root}>
-  //       <div className={styles.card} style={{ alignItems: "center", paddingTop: 40, paddingBottom: 40 }}>
-  //         <div style={{ fontSize: 48, marginBottom: 12 }}>👋</div>
-  //         <h2 style={{ marginBottom: 8, fontWeight: 800, fontSize: 24 }}>
-  //           Вітаємо, {user.login}!
-  //         </h2>
-  //         <div style={{ marginBottom: 18, fontSize: 16 }}>
-  //           Ви увійшли як <b>{user.role}</b>. <br />
-  //           Зареєстровано: {new Date(user.registered_at).toLocaleString()}
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+if (user) {    
+   return (
+     <div className={styles.root}>
+       <div className={styles.card} style={{ alignItems: "center", paddingTop: 40, paddingBottom: 40 }}>
+         <div style={{ fontSize: 48, marginBottom: 12 }}>👋</div>
+         <h2 style={{ marginBottom: 8, fontWeight: 800, fontSize: 24 }}>
+           Вітаємо, {user.login}!
+         </h2>
+         <div style={{ marginBottom: 18, fontSize: 16 }}>
+           Ви увійшли як <b>{user.role}</b>. <br />
+           Зареєстровано: {new Date(user.registered_at).toLocaleString()}
+         </div>
+       </div>
+     </div>
+   );
+ }
 
   async function handleAuth(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
