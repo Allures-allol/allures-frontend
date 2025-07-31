@@ -1,51 +1,13 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import styles from "./profile.module.css";
 import Image from "next/image";
-
-function Header() {
-  return (
-    <header className={styles.header}>
-      <div className={styles.headerLeft}>
-        <button className={styles.menuBtn}>
-          <span className={styles.menuIcon}>≡</span>
-        </button>
-        <button className={styles.catalogBtn}>
-          <span className={styles.catalogIcon}>🗂️</span> Каталог
-        </button>
-        <Image
-          src="/logo.png"
-          alt="Allures"
-          width={37}
-          height={38}
-          className={styles.logo}
-        />
-        <input
-          className={styles.searchInput}
-          type="text"
-          placeholder="Я шукаю…"
-        />
-      </div>
-      <div className={styles.headerRight}>
-        <button className={styles.voiceBtn} title="Голосовий пошук">
-          <span role="img" aria-label="mic">🎤</span>
-        </button>
-        <button className={styles.findBtn}>Знайти</button>
-        <div className={styles.headerIcons}>
-          <span className={styles.headerIcon}>≡</span>
-          <span className={styles.headerIcon}>👤</span>
-          <span className={styles.headerIcon}>⚖️</span>
-          <span className={styles.headerIcon}>♡</span>
-          <span className={styles.headerIcon}>
-            <Image src="/basket.png" alt="Basket" width={24} height={24} />
-          </span>
-        </div>
-      </div>
-    </header>
-  );
-}
+import Header from "../../components/headers/header";
+import Footer from "../../components/footers/footer";
 
 export default function ProfilePage() {
+  const [activeSection, setActiveSection] = useState("Контактна інформація");
+
   return (
     <>
       <Header />
@@ -66,95 +28,156 @@ export default function ProfilePage() {
               <div className={styles.userEmail}>name123@gmail.com</div>
             </div>
           </div>
-          <div className={styles.menu}>
-            <hr className={styles.menuDivider} />
-            <div className={styles.menuSection}>
-              <div className={styles.menuTitle}>Бонусний рахунок</div>
-            </div>
-            <hr className={styles.menuDivider} />
-            <ul>
-              <li>
-                <span className={styles.menuIcon}>{/* иконка */}</span>
-                Замовлення
+          <nav className={styles.menu}>
+            <ul className={styles.menuList}>
+              <li
+                className={`${styles.menuListItem} ${activeSection === "Контактна інформація" ? styles.activeMenuItem : ""}`}
+                onClick={() => setActiveSection("Контактна інформація")}
+              >
+                Контактна інформація
               </li>
-              <li>
-                <span className={styles.menuIcon}>{/* <Image src="/chat.svg" ... /> */}</span>
-                Листування з продавцями
+              <li
+                className={`${styles.menuListItem} ${activeSection === "Адресна книга" ? styles.activeMenuItem : ""}`}
+                onClick={() => setActiveSection("Адресна книга")}
+              >
+                Адресна книга
               </li>
-              <li>
-                <span className={styles.menuIcon}>{/* <Image src="/bell.svg" ... /> */}</span>
-                Персональні пропозиції
+              <li
+                className={`${styles.menuListItem} ${activeSection === "Історія замовлень" ? styles.activeMenuItem : ""}`}
+                onClick={() => setActiveSection("Історія замовлень")}
+              >
+                Історія замовлень
               </li>
-              <li>
-                <span className={styles.menuIcon}>{/* <Image src="/basket.svg" ... /> */}</span>
+              <li
+                className={`${styles.menuListItem} ${activeSection === "Список бажань" ? styles.activeMenuItem : ""}`}
+                onClick={() => setActiveSection("Список бажань")}
+              >
+                Список бажань
+              </li>
+              <li
+                className={`${styles.menuListItem} ${activeSection === "Кошик" ? styles.activeMenuItem : ""}`}
+                onClick={() => setActiveSection("Кошик")}
+              >
                 Кошик
               </li>
-              <li>
-                <span className={styles.menuIcon}>{/* <Image src="/heart.svg" ... /> */}</span>
-                Вподобайки <span className={styles.counter}>0</span>
+              <li
+                className={`${styles.menuListItem} ${activeSection === "Знижки та акції" ? styles.activeMenuItem : ""}`}
+                onClick={() => setActiveSection("Знижки та акції")}
+              >
+                Знижки та акції
               </li>
-              <li>
-                <span className={styles.menuIcon}>{/* <Image src="/compare.svg" ... /> */}</span>
-                Списки порівнянь
-              </li>
-              <li>
-                <span className={styles.menuIcon}>{/* <Image src="/review.svg" ... /> */}</span>
-                Відгуки
-              </li>
+              <li className={styles.menuListItem}>Переглянуті товари</li>
+              <li className={styles.menuListItem}>Кабінет продавця</li>
             </ul>
-          </div>
+          </nav>
         </div>
         <div className={styles.content}>
-          <h2 className={styles.sectionTitle}>Особисті дані</h2>
-          <div className={styles.profileCard}>
-            <div className={styles.profileImageSection}>
-              <Image
-                src="/avatar-placeholder.png"
-                alt="Profile"
-                width={90}
-                height={90}
-                className={styles.profileImg}
-              />
-              <div>
-                <button className={styles.updateBtn}>Оновити зображення профілю</button>
-                <button className={styles.deleteBtn} title="Видалити">
-                  <Image
-                    src="/trash.png"
-                    alt="Delete"
-                    width={24}
-                    height={24}
-                    style={{ verticalAlign: "middle" }}
-                  />
-                </button>
-                <div className={styles.imageHint}>
-                  Має бути JPEG, PNG або GIF та не перевищувати 10 МБ.
+          <h2 className={styles.sectionTitle}>{activeSection}</h2>
+          {/* Contact Information */}
+          {activeSection === "Контактна інформація" && (
+            <div className={styles.contactForm}>
+              <div className={styles.formGroup}>
+                <input type="text" placeholder="Ваше ім'я" className={styles.formInput} />
+              </div>
+              <div className={styles.formGroup}>
+                <input type="text" placeholder="Прізвище" className={styles.formInput} />
+              </div>
+              <div className={styles.formGroup}>
+                <input type="email" placeholder="E-mail" className={styles.formInput} />
+              </div>
+              <div className={styles.formGroup}>
+                <input type="date" placeholder="Дата народження" className={styles.formInput} />
+              </div>
+              <div className={styles.formGroup}>
+                <input type="tel" placeholder="Телефон" className={styles.formInput} />
+              </div>
+              <button className={styles.saveBtn}>Зберегти</button>
+              <div className={styles.orSeparator}>або</div>
+              <button className={styles.googleBtn}>Продовжити з Google</button>
+            </div>
+          )}
+
+          {/* Address Book */}
+          {activeSection === "Адресна книга" && (
+            <div className={styles.contactForm}>
+              <div className={styles.formGroup}>
+                <input type="text" placeholder="Ім'я" className={styles.formInput} />
+              </div>
+              <div className={styles.formGroup}>
+                <input type="text" placeholder="Прізвище" className={styles.formInput} />
+              </div>
+              <div className={styles.formGroup}>
+                <input type="tel" placeholder="Телефон" className={styles.formInput} />
+              </div>
+              <div className={styles.formGroup}>
+                <input type="text" placeholder="Вулиця" className={styles.formInput} />
+              </div>
+              <div className={styles.formRow}>
+                <div className={styles.formGroup}>
+                  <input type="text" placeholder="Будинок" className={styles.formInput} />
+                </div>
+                <div className={styles.formGroup}>
+                  <input type="text" placeholder="Квартира" className={styles.formInput} />
+                </div>
+                <div className={styles.formGroup}>
+                  <input type="text" placeholder="Індекс" className={styles.formInput} />
                 </div>
               </div>
+              <button className={styles.saveBtn}>Зберегти</button>
             </div>
-            <div className={styles.profileFields}>
-              <div className={styles.profileField}>
-                <div className={styles.fieldLabel}>Мій акаунт</div>
-                <div>Ім'я Прізвище</div>
+          )}
+
+          {/* Order History */}
+          {activeSection === "Історія замовлень" && (
+            <>
+              <div className={styles.filters}>
+                <button className={`${styles.filterButton} ${styles.filterButtonActive}`}>Всі</button>
+                <button className={styles.filterButton}>Цього місяця</button>
+                <button className={styles.filterButton}>Цього року</button>
+                <button className={styles.filterButton}>Минулого року</button>
               </div>
-              <div className={styles.profileField}>
-                <div className={styles.fieldLabel}>Особисті дані</div>
-                <div>Українська</div>
+              <div className={styles.orderCard}>
+                <p className={styles.noOrdersText}>нету покупок</p>
               </div>
-              <div className={styles.profileField}>
-                <div className={styles.fieldLabel}>Мої отримувачі замовлень</div>
-              </div>
-              <div className={styles.profileField}>
-                <div className={styles.fieldLabel}>Контакти</div>
-                <div>+39 093 342 53 33 name123@gmail.com</div>
-              </div>
-              <div className={styles.profileField}>
-                <div className={styles.fieldLabel}>Адреса доставки</div>
-              </div>
+            </>
+          )}
+
+          {/* Wishlist */}
+          {activeSection === "Список бажань" && (
+            <div className={styles.orderCard}>
+              <p className={styles.noOrdersText}>вы еще не добавили товар в желаемые</p>
             </div>
-          </div>
-          <button className={styles.logoutBtn}>Вихід</button>
+          )}
+
+          {/* Cart */}
+          {activeSection === "Кошик" && (
+            <div className={styles.cartCard}>
+              <p className={styles.cartEmptyText}>Тут пусто</p>
+            </div>
+          )}
+
+          {/* Promotions */}
+          {activeSection === "Знижки та акції" && (
+            <div className={styles.promoGrid}>
+              {[1, 2, 3, 4].map((idx) => (
+                <div key={idx} className={styles.promoCard}>
+                  {/* TODO: Replace src with your image in public folder */}
+                  <img
+                    src={`/promo${idx}.png`}
+                    alt={`Promotion ${idx}`}
+                    className={styles.promoImage}
+                  />
+                  <button className={styles.promoButton}>
+                    {/* TODO: Update button text */}
+                    Дізнатися більше
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+      <Footer />
     </>
   );
 }

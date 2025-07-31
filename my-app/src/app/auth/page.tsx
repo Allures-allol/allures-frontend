@@ -126,7 +126,8 @@ export default function AuthPage() {
     }
 
     try {
-      const endpoint = `https://allures-backend-4ab6935da9b4.herokuapp.com/auth/${activeTab}`;
+      // Используем корректные эндпоинты FastAPI: /auth/login и /auth/register
+      const endpoint = `https://api.alluresallol.com/auth/${activeTab}`;
       const payload = { login, password };
 
       const res = await fetch(endpoint, {
@@ -138,24 +139,26 @@ export default function AuthPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        // Показываем подробную ошибку от сервера
         const errorMessage = Array.isArray(data?.detail)
-          ? (data.detail as FastAPIError[]).map(err => err.msg).join("; ")
+          ? (data.detail as FastAPIError[]).map(err => err.msg).join('; ')
           : typeof data?.detail === 'string'
             ? data.detail
-            : "Сталася помилка. Спробуйте ще раз.";
-
+            : data?.msg || 'Сталася помилка. Спробуйте ще раз.';
         setError(errorMessage);
         return;
       }
 
       if (activeTab === 'login') {
-        localStorage.setItem("token", data.access_token);
+        if (data.access_token) {
+          localStorage.setItem('token', data.access_token);
+        }
         setUser({
-          id: 0,
+          id: data.id || 0,
           login: data.login,
           role: data.role,
           registered_at: data.registered_at,
-          is_blocked: false
+          is_blocked: data.is_blocked ?? false
         });
       } else {
         setUser({
@@ -169,14 +172,13 @@ export default function AuthPage() {
 
       setLogin('');
       setPassword('');
-      router.push("/"); // <-- редирект на главную страницу
+      router.push('/');
     } catch (err: unknown) {
-      console.error("Помилка при запиті:", err);
-
+      console.error('Помилка при запиті:', err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Невідома помилка");
+        setError('Невідома помилка');
       }
     }
   }

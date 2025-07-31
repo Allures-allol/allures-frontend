@@ -282,3 +282,327 @@
   border-top: 1px solid #e0e0e0;
   margin: 10px 0 10px 0;
 }
+
+/* Contact form styles */
+.contactForm {
+  max-width: 400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGroup {
+  width: 100%;
+}
+
+.formInput {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid #ccc;
+  font-size: 16px;
+  outline: none;
+}
+
+.formInput::placeholder {
+  color: #999;
+}
+
+.saveBtn {
+  width: fit-content;
+  padding: 10px 20px;
+  border: 1px solid #3b70f6;
+  border-radius: 20px;
+  background: transparent;
+  color: #3b70f6;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s;
+}
+
+.saveBtn:hover {
+  background: #3b70f6;
+  color: #fff;
+}
+
+.orSeparator {
+  text-align: center;
+  color: #666;
+  margin: 8px 0;
+}
+
+.googleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 240px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition: box-shadow 0.3s;
+}
+
+.googleBtn:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.tabList {
+  list-style: none;
+  display: flex;
+  padding: 0;
+  margin: 0 0 16px 0;
+}
+
+.tabItem {
+  padding: 8px 16px;
+  margin-right: 12px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.activeTab {
+  border-color: #3b70f6;
+  color: #3b70f6;
+  background: rgba(59, 112, 246, 0.1);
+}
+
+.menuList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menuListItem {
+  padding: 10px 0;
+  cursor: pointer;
+  color: #333;
+  transition: color 0.2s;
+}
+
+.menuListItem:hover {
+  color: #3b70f6;
+}
+.filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.filterButton {
+  padding: 8px 16px;
+  border: 1px solid #3b70f6;
+  border-radius: 20px;
+  background: #fff;
+  color: #3b70f6;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s;
+}
+
+.filterButtonActive {
+  background: #3b70f6;
+  color: #fff;
+}
+
+.orderCard {
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  background: #fff;
+}
+
+.noOrdersText {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+}
+
+/* Wishlist section */
+.wishlistCard {
+  border: 1px solid #3b70f6;
+  border-radius: 12px;
+  padding: 24px;
+  background: #fff;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.wishlistText {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+}
+
+/* Cart section styles */
+.cartList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cartItem {
+  display: flex;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cartItem:last-child {
+  border-bottom: none;
+}
+
+.cartItemImage {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  margin-right: 16px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.cartItemDetails {
+  flex: 1;
+}
+
+.cartItemTitle {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.cartItemSubtitle {
+  color: #888;
+  font-size: 13px;
+}
+
+.cartItemControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px;
+}
+
+.cartQuantity {
+  width: 40px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.cartPrice {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.cartSummary {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 24px;
+}
+
+.orderBtn {
+  margin-top: 16px;
+  background: #3b70f6;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 32px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.orderBtn:hover {
+  background: #0055bb;
+}
+
+/* Promotions grid adjustment */
+.promoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 24px;
+}
+
+/* Standard promo card */
+.promoCard {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.promoImage {
+  width: 100%;
+  object-fit: cover;
+}
+
+/* Shared button style */
+.promoButton {
+  width: calc(100% - 32px);
+  margin: 16px;
+  padding: 10px 0;
+  background: #3b70f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.promoButton:hover {
+  background: #0055bb;
+}
+
+/* Full-width promo card (third row) */
+.promoCardFull {
+  grid-column: 1 / -1; /* spans both columns */
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.promoImageFull {
+  width: 100%;
+  object-fit: cover;
+}
+
+.promoButtonFull {
+  width: calc(100% - 32px);
+  margin: 16px;
+  padding: 10px 0;
+  background: #3b70f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.promoButtonFull:hover {
+  background: #0055bb;
+}
