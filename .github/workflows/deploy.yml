@@ -1,4 +1,4 @@
-name: Deploy Frontend to GitHub Pages
+name: Deploy Frontend to VM
 
 on:
   push:
@@ -6,30 +6,15 @@ on:
       - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: SSH Deploy
+        uses: appleboy/ssh-action@v0.1.7
         with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: |
-          cd my-app
-          npm install
-
-      - name: Build
-        run: |
-          cd my-app
-          npm run build
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          personal_token: ${{ secrets.GH_PAT }}
-          publish_dir: ./my-app/out   # проверь, где именно билдятся файлы (out или build)
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          script: /opt/deploy-frontend.sh
