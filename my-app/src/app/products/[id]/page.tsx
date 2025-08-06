@@ -1,4 +1,3 @@
-// src/app/products/[id]/page.tsx
 import React from 'react';
 import Link from 'next/link';
 import Header from '../../../components/headers/header';
@@ -25,13 +24,13 @@ async function getProduct(id: string): Promise<Product | null> {
   }
 }
 
-// Тип props с params как Promise — обязательное требование Next.js 15+
+// Next.js 15+ требует, чтобы params был Promise
 type ProductDetailPageProps = {
   params: Promise<{ id: string }>;
 };
 
 export default async function ProductDetailPage(props: ProductDetailPageProps) {
-  const params = await props.params; // здесь ждем Promise
+  const params = await props.params; // ждём Promise
   const product = await getProduct(params.id);
 
   if (!product) {
@@ -244,7 +243,9 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
             <tbody>
               <tr>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>Ціна</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{product.price.toLocaleString('uk-UA')} ₴</td>
+                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
+                  {product.price.toLocaleString('uk-UA')} ₴
+                </td>
               </tr>
               <tr>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>Категорія</td>
