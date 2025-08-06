@@ -25,7 +25,13 @@ async function getProduct(id: string): Promise<Product | null> {
   }
 }
 
-export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+type ProductDetailPageProps = {
+  params: {
+    id: string;
+  };
+};
+
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const product = await getProduct(params.id);
   if (!product) {
     return (
@@ -63,22 +69,54 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
           <div style={{ flex: 1 }}>
             {/* Tabs */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-              <button style={{
-                padding: '8px 16px', background: '#000', color: '#fff',
-                border: 'none', borderRadius: 4, cursor: 'pointer'
-              }}>Про товар</button>
-              <button style={{
-                padding: '8px 16px', background: '#fff', color: '#000',
-                border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer'
-              }}>Характеристики</button>
-              <button style={{
-                padding: '8px 16px', background: '#fff', color: '#000',
-                border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer'
-              }}>Відгуки (102)</button>
+              <button
+                style={{
+                  padding: '8px 16px',
+                  background: '#000',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                Про товар
+              </button>
+              <button
+                style={{
+                  padding: '8px 16px',
+                  background: '#fff',
+                  color: '#000',
+                  border: '1px solid #ccc',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                Характеристики
+              </button>
+              <button
+                style={{
+                  padding: '8px 16px',
+                  background: '#fff',
+                  color: '#000',
+                  border: '1px solid #ccc',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                Відгуки (102)
+              </button>
             </div>
 
             <h1 style={{ margin: 0, fontSize: 24 }}>{product.name}</h1>
-            <div style={{ margin: '8px 0 16px', color: '#555', fontSize: 14, borderBottom: '1px solid #eee', paddingBottom: 8 }}>
+            <div
+              style={{
+                margin: '8px 0 16px',
+                color: '#555',
+                fontSize: 14,
+                borderBottom: '1px solid #eee',
+                paddingBottom: 8,
+              }}
+            >
               {product.description}
             </div>
 
@@ -93,10 +131,16 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
             {/* Color swatches & code */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               {['#000', '#ccc', '#fab', '#68c'].map((c, i) => (
-                <span key={i} style={{
-                  width: 16, height: 16, background: c,
-                  borderRadius: '50%', border: '1px solid #ccc'
-                }} />
+                <span
+                  key={i}
+                  style={{
+                    width: 16,
+                    height: 16,
+                    background: c,
+                    borderRadius: '50%',
+                    border: '1px solid #ccc',
+                  }}
+                />
               ))}
               <span style={{ marginLeft: 16, color: '#555' }}>Код: {product.id}</span>
             </div>
@@ -106,23 +150,35 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
 
             {/* Price & actions */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-              <span style={{ fontSize: 32, fontWeight: 700 }}>
-                {product.price.toLocaleString('uk-UA')} ₴
-              </span>
-              <button style={{
-                padding: '12px 32px', background: '#0070f3', color: '#fff',
-                border: 'none', borderRadius: 4, cursor: 'pointer'
-              }}>Купити</button>
-              <button style={{
-                padding: '12px 32px', background: '#fff', color: '#0070f3',
-                border: '2px solid #0070f3', borderRadius: 4, cursor: 'pointer'
-              }}>Додати в кошик</button>
+              <span style={{ fontSize: 32, fontWeight: 700 }}>{product.price.toLocaleString('uk-UA')} ₴</span>
+              <button
+                style={{
+                  padding: '12px 32px',
+                  background: '#0070f3',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                Купити
+              </button>
+              <button
+                style={{
+                  padding: '12px 32px',
+                  background: '#fff',
+                  color: '#0070f3',
+                  border: '2px solid #0070f3',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                Додати в кошик
+              </button>
             </div>
 
             {/* Delivery options */}
-            <table style={{
-              width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#333'
-            }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, color: '#333' }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left', padding: 8 }}>Доставка</th>
@@ -134,11 +190,13 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
                 {[
                   ['Самовивіз з пунктів видачі Allures', 'Завтра з 12:00', 'Безкоштовно'],
                   ['Кур’єр на вашу адресу', 'Завтра з 10:00', 'Безкоштовно від 1 000 ₴'],
-                  ['Доставка Нової Пошти', 'Відправимо завтра', 'За тарифами перевізника']
+                  ['Доставка Нової Пошти', 'Відправимо завтра', 'За тарифами перевізника'],
                 ].map((row, i) => (
                   <tr key={i} style={{ borderTop: i > 0 ? '1px solid #eee' : 'none' }}>
                     {row.map((cell, j) => (
-                      <td key={j} style={{ padding: 8 }}>{cell}</td>
+                      <td key={j} style={{ padding: 8 }}>
+                        {cell}
+                      </td>
                     ))}
                   </tr>
                 ))}
@@ -154,11 +212,7 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
             {/* Placeholder thumbnails */}
             {[1, 2, 3, 4].map((_, i) => (
               <div key={i} style={{ minWidth: 200 }}>
-                <img
-                  src={product.image}
-                  alt=""
-                  style={{ width: '100%', borderRadius: 8 }}
-                />
+                <img src={product.image} alt="" style={{ width: '100%', borderRadius: 8 }} />
                 <p style={{ fontSize: 14, margin: '8px 0 0' }}>{product.name}</p>
               </div>
             ))}
@@ -178,15 +232,11 @@ export default async function ProductDetailPage({ params }: { params: { id: stri
             <tbody>
               <tr>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>Ціна</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                  {product.price.toLocaleString('uk-UA')} ₴
-                </td>
+                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{product.price.toLocaleString('uk-UA')} ₴</td>
               </tr>
               <tr>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>Категорія</td>
-                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                  {product.category_name}
-                </td>
+                <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{product.category_name}</td>
               </tr>
               {/* Add more rows as needed */}
             </tbody>
