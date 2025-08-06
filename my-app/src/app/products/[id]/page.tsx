@@ -25,14 +25,13 @@ async function getProduct(id: string): Promise<Product | null> {
   }
 }
 
-type ProductDetailPageProps = {
-  params: {
-    id: string;
-  };
-};
-
-export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+export default async function ProductDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const product = await getProduct(params.id);
+
   if (!product) {
     return (
       <>
@@ -48,10 +47,22 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       <Header />
 
       {/* Breadcrumb */}
-      <nav style={{ fontSize: 14, color: '#555', padding: '8px 20px', display: 'flex', gap: 4, alignItems: 'center' }}>
+      <nav
+        style={{
+          fontSize: 14,
+          color: '#555',
+          padding: '8px 20px',
+          display: 'flex',
+          gap: 4,
+          alignItems: 'center',
+        }}
+      >
         <Link href="/">🏠</Link>
         <span>/</span>
-        <Link href={`/products?category=${encodeURIComponent(product.category_name)}`} style={{ color: '#555', textDecoration: 'none' }}>
+        <Link
+          href={`/products?category=${encodeURIComponent(product.category_name)}`}
+          style={{ color: '#555', textDecoration: 'none' }}
+        >
           {product.category_name}
         </Link>
         <span>/</span>
@@ -209,7 +220,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
         <section style={{ marginTop: 40 }}>
           <h2>Схожі товари</h2>
           <div style={{ display: 'flex', gap: 16, overflowX: 'auto', padding: '12px 0' }}>
-            {/* Placeholder thumbnails */}
             {[1, 2, 3, 4].map((_, i) => (
               <div key={i} style={{ minWidth: 200 }}>
                 <img src={product.image} alt="" style={{ width: '100%', borderRadius: 8 }} />
@@ -238,7 +248,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>Категорія</td>
                 <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>{product.category_name}</td>
               </tr>
-              {/* Add more rows as needed */}
             </tbody>
           </table>
         </section>
