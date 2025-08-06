@@ -28,11 +28,7 @@ async function getProductsByCategory(category: string): Promise<Product[]> {
   }
 }
 
-export default async function CategoryPage({
-  params,
-}: {
-  params: { category: string };
-}) {
+export default async function CategoryPage({ params }: any) {
   const products = await getProductsByCategory(params.category);
 
   return (
