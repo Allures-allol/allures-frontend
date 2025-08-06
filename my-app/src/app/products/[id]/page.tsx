@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Header from '../../../components/headers/header';
 import Footer from '../../../components/footers/footer';
 
@@ -24,13 +25,12 @@ async function getProduct(id: string): Promise<Product | null> {
   }
 }
 
-// Next.js 15+ требует, чтобы params был Promise
 type ProductDetailPageProps = {
   params: Promise<{ id: string }>;
 };
 
 export default async function ProductDetailPage(props: ProductDetailPageProps) {
-  const params = await props.params; // ждём Promise
+  const params = await props.params;
   const product = await getProduct(params.id);
 
   if (!product) {
@@ -42,6 +42,15 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
       </>
     );
   }
+
+  const tabBtnBaseStyle = {
+    padding: '8px 16px',
+    borderRadius: 4,
+    cursor: 'pointer',
+    border: '1px solid #ccc',
+    background: '#fff',
+    color: '#000',
+  };
 
   return (
     <>
@@ -72,51 +81,35 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
 
       {/* Main content */}
       <main style={{ maxWidth: 1200, margin: '20px auto', padding: '0 20px' }}>
-        <div style={{ display: 'flex', gap: 40 }}>
+        <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
           {/* Left column: main image */}
-          <div style={{ flex: 1 }}>
-            <img src={product.image} alt={product.name} style={{ width: '100%', borderRadius: 8 }} />
+          <div style={{ flex: '1 1 300px', minWidth: 300 }}>
+            <Image
+              src={product.image}
+              alt={product.name}
+              width={600}
+              height={600}
+              style={{ borderRadius: 8, objectFit: 'contain', width: '100%', height: 'auto' }}
+              priority
+            />
           </div>
+
           {/* Right column: product info */}
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: '1 1 300px', minWidth: 300 }}>
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
               <button
                 style={{
-                  padding: '8px 16px',
+                  ...tabBtnBaseStyle,
                   background: '#000',
                   color: '#fff',
                   border: 'none',
-                  borderRadius: 4,
-                  cursor: 'pointer',
                 }}
               >
                 Про товар
               </button>
-              <button
-                style={{
-                  padding: '8px 16px',
-                  background: '#fff',
-                  color: '#000',
-                  border: '1px solid #ccc',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                }}
-              >
-                Характеристики
-              </button>
-              <button
-                style={{
-                  padding: '8px 16px',
-                  background: '#fff',
-                  color: '#000',
-                  border: '1px solid #ccc',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                }}
-              >
-                Відгуки (102)
-              </button>
+              <button style={tabBtnBaseStyle}>Характеристики</button>
+              <button style={tabBtnBaseStyle}>Відгуки (102)</button>
             </div>
 
             <h1 style={{ margin: 0, fontSize: 24 }}>{product.name}</h1>
@@ -142,13 +135,13 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
 
             {/* Color swatches & code */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              {['#000', '#ccc', '#fab', '#68c'].map((c, i) => (
+              {['#000', '#ccc', '#fab', '#68c'].map((color, i) => (
                 <span
                   key={i}
                   style={{
                     width: 16,
                     height: 16,
-                    background: c,
+                    backgroundColor: color,
                     borderRadius: '50%',
                     border: '1px solid #ccc',
                   }}
@@ -161,8 +154,10 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
             <p style={{ color: '#0070f3', marginBottom: 16 }}>Є в наявності</p>
 
             {/* Price & actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-              <span style={{ fontSize: 32, fontWeight: 700 }}>{product.price.toLocaleString('uk-UA')} ₴</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 32, fontWeight: 700 }}>
+                {product.price.toLocaleString('uk-UA')} ₴
+              </span>
               <button
                 style={{
                   padding: '12px 32px',
@@ -223,7 +218,13 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
           <div style={{ display: 'flex', gap: 16, overflowX: 'auto', padding: '12px 0' }}>
             {[1, 2, 3, 4].map((_, i) => (
               <div key={i} style={{ minWidth: 200 }}>
-                <img src={product.image} alt="" style={{ width: '100%', borderRadius: 8 }} />
+                <Image
+                  src={product.image}
+                  alt={product.name}
+                  width={200}
+                  height={200}
+                  style={{ borderRadius: 8, objectFit: 'cover' }}
+                />
                 <p style={{ fontSize: 14, margin: '8px 0 0' }}>{product.name}</p>
               </div>
             ))}
