@@ -25,11 +25,13 @@ async function getProduct(id: string): Promise<Product | null> {
   }
 }
 
-export default async function ProductDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+// Тип props с params как Promise — обязательное требование Next.js 15+
+type ProductDetailPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function ProductDetailPage(props: ProductDetailPageProps) {
+  const params = await props.params; // здесь ждем Promise
   const product = await getProduct(params.id);
 
   if (!product) {
