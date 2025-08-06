@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import styles from './footer.module.css';
 
@@ -10,11 +8,11 @@ export default function Footer() {
         <div className={styles.footerColumn}>
           <h3>Allures</h3>
           <ul>
-            <li><a href="#">Кар’єра</a></li>
+            <li><a href="/about">Кар’єра</a></li>
             <li><a href="#">Для ЗМІ</a></li>
             <li><a href="#">Оптовим клієнтам</a></li>
-            <li><a href="#">Служба підтримки</a></li>
-            <li><a href="#">Про Компанію</a></li>
+            <li><a href="/support">Служба підтримки</a></li>
+            <li><a href="/about">Про нас</a></li>
             <li><a href="#">Новини</a></li>
           </ul>
         </div>
@@ -59,17 +57,17 @@ export default function Footer() {
       </div>
 
       <div className={styles.footerSocial}>
-        <img src="/icons/facebook.svg" alt="Facebook" />
+        <img src="/facebook.png" alt="Facebook" />
         <img src="/icons/instagram.svg" alt="Instagram" />
         <img src="/icons/tiktok.svg" alt="TikTok" />
         <img src="/icons/youtube.svg" alt="YouTube" />
       </div>
 
       <div className={styles.footerPayments}>
-        <img src="/icons/gpay.svg" alt="Google Pay" />
-        <img src="/icons/applepay.svg" alt="Apple Pay" />
-        <img src="/icons/visa.svg" alt="Visa" />
-        <img src="/icons/mastercard.svg" alt="Mastercard SecureCode" />
+        <img src="/googlepay.png" alt="Google Pay" />
+        <img src="/applepay.png" alt="Apple Pay" />
+        <img src="/visa.png" alt="Visa" />
+        <img src="/mastercard.png" alt="Mastercard SecureCode" />
       </div>
     </footer>
   );

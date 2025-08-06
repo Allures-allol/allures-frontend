@@ -1,0 +1,132 @@
+/* support.module.css */
+.breadcrumb {
+  max-width: 1200px;
+  margin: 16px auto;
+  padding: 0 20px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #555;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 40px auto 60px;
+  /* remove horizontal padding so blue boxes align flush */
+  padding: 0;
+}
+
+.intro {
+  margin-bottom: 60px;
+}
+
+.intro h1 {
+  font-size: 32px;
+  color: #335efd;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.intro h2 {
+  font-size: 24px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.intro p {
+  max-width: 800px;
+  margin: 8px auto;
+  line-height: 1.6;
+  color: #333;
+  text-align: left;
+}
+
+/* Call us */
+.callSection {
+  display: flex;
+  justify-content: flex-start;   /* align left */
+  margin-bottom: 40px;
+}
+
+.callBox {
+  background: linear-gradient(90deg, #335efd 0%, #c6d4ff 100%);
+  border-radius: 0 120px 120px 0;
+  padding: 40px;
+  text-align: center;
+  color: #fff;
+  width: 70%;
+  box-sizing: border-box;
+}
+
+.callBox h3 {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.callBox small {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.phone {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* Write us */
+.writeSection {
+  display: flex;
+  justify-content: flex-end;    /* align right */
+  margin-bottom: 60px;
+}
+
+.writeBox {
+  background: linear-gradient(90deg, #c6d4ff 0%, #335efd 100%);
+  border-radius: 120px 0 0 120px;
+  padding: 40px;
+  text-align: center;
+  color: #fff;
+  width: 70%;
+  box-sizing: border-box;
+}
+
+.writeBox h3 {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.writeBox small {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.writeActions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+.emailBtn,
+.ticketBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  color: #335efd;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 20px;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.emailBtn:hover,
+.ticketBtn:hover {
+  background: #e0e7ff;
+}

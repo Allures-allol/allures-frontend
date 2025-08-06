@@ -1,17 +1,27 @@
-'use client';
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Image from "next/image";
 import Header from "../components/headers/header";
 import Footer from "../components/footers/footer";
+import Link from "next/link";
 import Partners from "../components/partners/partners";
-import './globals.css';
 type Product = {
   id: number;
-  title: string;
+  name: string;
+  description: string;
   price: number;
+  old_price: number;
   image: string;
-  rating: number;
-  colors: string[];
+  status: string;
+  current_inventory: number;
+  is_hit: boolean;
+  is_discount: boolean;
+  is_new: boolean;
+  created_at: string;
+  updated_at: string;
+  category_id: number;
+  category_name: string;
+  subcategory: string;
+  product_type: string;
 };
 
 async function getProducts(): Promise<Product[]> {
@@ -20,38 +30,15 @@ async function getProducts(): Promise<Product[]> {
       cache: "no-store",
     });
     const data = await res.json();
-    console.log("Products API response:", data);
-
-    // Support array, data.products, or data.data
-    const itemsArray = Array.isArray(data)
-      ? data
-      : Array.isArray((data as any).products)
-      ? (data as any).products
-      : Array.isArray((data as any).data)
-      ? (data as any).data
-      : [];
-
-    console.log("Normalized items:", itemsArray);
-    return itemsArray.slice(0, 4);
+    return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("Ошибка при загрузке товаров:", err);
     return [];
   }
 }
 
-export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-  useEffect(() => {
-    console.log("Starting product fetch...");
-    getProducts()
-      .then((data) => {
-        console.log("Fetched products:", data);
-        setProducts(data);
-      })
-      .catch((err) => {
-        console.error("Error in fetchProducts promise:", err);
-      });
-  }, []);
+export default async function Home() {
+  const products = await getProducts();
 
   return (
     <>
@@ -89,8 +76,108 @@ export default function Home() {
           <button className="categories-list__button">Меблі</button>
         </div>
       </div>
-      
-  
+      <main style={{ padding: "20px", background: "#fafafa" }}>
+        <h1 style={{ textAlign: "center", fontSize: 32, fontWeight: 700 }}>
+          Маркетплейс
+        </h1>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 256px)",
+            justifyContent: "center",
+            columnGap: "5px",
+            margin: "40px auto 0",
+          }}
+        >
+          {products.slice(0, 4).map((p) => (
+            <div
+              key={p.id}
+              style={{
+                background: "#fff",
+                borderRadius: "8px",
+                padding: "16px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                height: "380px",
+              }}
+            >
+              <button
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  right: "12px",
+                  background: "transparent",
+                  border: "none",
+                  fontSize: "20px",
+                  cursor: "pointer",
+                }}
+              >
+                ♡
+              </button>
+
+              <img
+                src={p.image}
+                alt={p.name}
+                style={{ width: "100%", height: "200px", objectFit: "contain" }}
+              />
+
+              <h3 style={{ margin: "12px 0", fontSize: 18 }}>{p.name}</h3>
+              <p style={{ fontSize: 14, color: "#555" }}>{p.description}</p>
+
+              <div style={{ margin: "12px 0" }}>
+                {p.is_discount && (
+                  <span style={{ textDecoration: "line-through", marginRight: 8 }}>
+                    {p.old_price.toLocaleString("uk-UA")} ₴
+                  </span>
+                )}
+                <span style={{ fontWeight: 700 }}>
+                  {p.price.toLocaleString("uk-UA")} ₴
+                </span>
+              </div>
+
+              <button
+                style={{
+                  position: "absolute",
+                  bottom: "16px",
+                  left: "16px",
+                  right: "16px",
+                  background: "#0070f3",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "12px 0",
+                  cursor: "pointer",
+                  textAlign: "center",
+                }}
+              >
+                В корзину
+              </button>
+            </div>
+          ))}
+          <Link href="/products" key="view-all">
+            <div
+              style={{
+                background: "#3b70f6",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#fff",
+                fontSize: "18px",
+                fontWeight: 600,
+                height: "380px",
+              }}
+            >
+              Дивитись все →
+            </div>
+          </Link>
+        </div>
+      </main>
       {/* Популярні категорії */}
       {(() => {
         const popularCategories = [
@@ -155,106 +242,9 @@ export default function Home() {
           </section>
         );
       })()}
-      <main style={{ padding: "20px", background: "#fafafa" }}>
-        <h1 style={{ textAlign: "center", fontSize: 32, fontWeight: 700 }}>
-          Маркетплейс
-        </h1>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-            gap: "20px",
-            marginTop: "40px",
-          }}
-        >
-          {products.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                background: "#fff",
-                borderRadius: "8px",
-                padding: "16px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                position: "relative",
-              }}
-            >
-              <button
-                style={{
-                  position: "absolute",
-                  top: "12px",
-                  right: "12px",
-                  background: "transparent",
-                  border: "none",
-                  fontSize: "20px",
-                  cursor: "pointer",
-                }}
-              >
-                ♡
-              </button>
-
-              <img
-                src={
-                  p.image.startsWith("http")
-                    ? p.image
-                    : `https://api.alluresallol.com${p.image}`
-                }
-                alt={p.title}
-                style={{
-                  width: "100%",
-                  height: "200px",
-                  objectFit: "contain",
-                }}
-              />
-
-              <h3 style={{ margin: "12px 0", fontSize: "18px" }}>{p.title}</h3>
-
-              <div>
-                {"★".repeat(Math.floor(p.rating || 0))}
-                {"☆".repeat(5 - Math.floor(p.rating || 0))}
-                <span style={{ marginLeft: "8px", color: "#666" }}>
-                  {p.rating?.toFixed(1)}
-                </span>
-              </div>
-
-              <p style={{ fontSize: "20px", fontWeight: 700, margin: "12px 0" }}>
-                {p.price.toLocaleString("uk-UA")} ₴
-              </p>
-
-              <div style={{ display: "flex", gap: "6px", marginBottom: "12px" }}>
-                {p.colors?.map((c) => (
-                  <span
-                    key={c}
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      borderRadius: "50%",
-                      background: c,
-                      border: "1px solid #ccc",
-                    }}
-                  />
-                ))}
-              </div>
-
-              <button
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  background: "#0070f3",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                В корзину
-              </button>
-            </div>
-          ))}
-        </div>
-      </main>
       <Partners />
       <Footer />
+      
     </>
   );
 }
