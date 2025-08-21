@@ -1,33 +1,32 @@
 # ===== Build stage =====
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Устанавливаем зависимости
-COPY package*.json ./
+# Копируем корневые node_modules и package.json
+COPY my-app/package*.json ./       # корневой package.json
+COPY node_modules ./node_modules  # если нужны скрипты
+
+# Копируем приложение
+COPY my-app/ ./my-app/
+
+WORKDIR /app/my-app
 RUN npm ci
-
-# Копируем исходники
-COPY . .
-
-# Отключаем телеметрию и билдим standalone
-ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # ===== Runner stage =====
 FROM node:20-alpine AS runner
+WORKDIR /app/my-app
 
-WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Копируем нужное из builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Копируем билд
+COPY --from=builder /app/my-app/.next/standalone ./
+COPY --from=builder /app/my-app/.next/static ./.next/static
+COPY --from=builder /app/my-app/public ./public
 
-# Указываем порт (по умолчанию Next слушает 3000)
+# Если нужны корневые скрипты:
+COPY --from=builder /app/node_modules ../node_modules
+
 EXPOSE 8069
-
-# Запускаем
 CMD ["node", "server.js"]
