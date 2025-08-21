@@ -17,21 +17,38 @@ type Product = {
 
 async function getProduct(id: string): Promise<Product | null> {
   try {
-    const res = await fetch(`https://api.alluresallol.com/products/${id}`, { cache: 'no-store' });
+    const res = await fetch(
+      `https://api.alluresallol.com/product/products/${id}`,
+      { cache: "no-store" }
+    );
+
     if (!res.ok) return null;
-    return await res.json();
-  } catch {
+    const raw = await res.json();
+
+    const mapped: Product = {
+      id: Number(raw.id),
+      name: String(raw.name ?? ""),
+      description: String(raw.description ?? ""),
+      price: Number(raw.price ?? 0),
+      old_price: Number(raw.old_price ?? 0),
+      image: String(raw.image ?? ""),
+      is_discount: Boolean(raw.is_discount),
+      category_name: String(raw.category_name ?? ""),
+    };
+
+    return mapped;
+  } catch (e) {
+    console.error("Ошибка при загрузке товара:", e);
     return null;
   }
 }
-
 type ProductDetailPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export default async function ProductDetailPage(props: ProductDetailPageProps) {
-  const params = await props.params;  // await Promise<{ id: string }>
-  const product = await getProduct(params.id);
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+  const { id } = await params;
+  const product = await getProduct(id);
 
   if (!product) {
     return (
@@ -51,6 +68,11 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
     background: '#fff',
     color: '#000',
   };
+
+  // placeholder.png — запасная картинка, должна быть в public/
+  const imageUrl = product.image
+    ? (product.image.startsWith('http') ? product.image : `https://api.alluresallol.com${product.image}`)
+    : '/placeholder.png';
 
   return (
     <>
@@ -81,17 +103,55 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
 
       {/* Main content */}
       <main style={{ maxWidth: 1200, margin: '20px auto', padding: '0 20px' }}>
+        {/* Custom, slower smooth-scroll for in-page anchors */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+(function(){
+  function easeInOutQuad(t){return t<0.5?2*t*t:-1+(4-2*t)*t}
+  function smoothScrollTo(targetY,duration){
+    var startY=window.scrollY||window.pageYOffset;
+    var diff=targetY-startY;
+    var startTime=null;
+    function step(timestamp){
+      if(!startTime) startTime=timestamp;
+      var t=Math.min(1,(timestamp-startTime)/duration);
+      var eased=easeInOutQuad(t);
+      window.scrollTo(0, startY + diff*eased);
+      if(t<1) window.requestAnimationFrame(step);
+    }
+    window.requestAnimationFrame(step);
+  }
+  document.addEventListener('click',function(e){
+    var a=e.target && e.target.closest('a[href^="#"]');
+    if(!a) return;
+    var href=a.getAttribute('href');
+    if(!href || href.length<2) return;
+    var id=href.slice(1);
+    var el=document.getElementById(id);
+    if(!el) return;
+    e.preventDefault();
+    var rect=el.getBoundingClientRect();
+    var targetY=rect.top + (window.scrollY||window.pageYOffset) - 96; // header offset
+    smoothScrollTo(targetY, 1000); // 1000ms = медленнее
+  }, true);
+})();
+    `
+          }}
+        />
         <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
           {/* Left column: main image */}
           <div style={{ flex: '1 1 300px', minWidth: 300 }}>
-            <Image
-              src={product.image}
-              alt={product.name}
-              width={600}
-              height={600}
-              style={{ borderRadius: 8, objectFit: 'contain', width: '100%', height: 'auto' }}
-              priority
-            />
+            {imageUrl && (
+              <Image
+                src={imageUrl}
+                alt={product.name}
+                width={600}
+                height={600}
+                style={{ borderRadius: 8, objectFit: 'contain', width: '100%', height: 'auto' }}
+                priority
+              />
+            )}
           </div>
 
           {/* Right column: product info */}
@@ -108,7 +168,18 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
               >
                 Про товар
               </button>
-              <button style={tabBtnBaseStyle}>Характеристики</button>
+              <a
+                href="#characteristics"
+                style={{
+                  ...tabBtnBaseStyle,
+                  display: 'inline-block',
+                  textDecoration: 'none',
+                  lineHeight: '32px',
+                  cursor: 'pointer',
+                }}
+              >
+                Характеристики
+              </a>
               <button style={tabBtnBaseStyle}>Відгуки (102)</button>
             </div>
 
@@ -213,13 +284,13 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
         </div>
 
         {/* Related products */}
-        <section style={{ marginTop: 40 }}>
+        {/* <section style={{ marginTop: 40 }}>
           <h2>Схожі товари</h2>
           <div style={{ display: 'flex', gap: 16, overflowX: 'auto', padding: '12px 0' }}>
             {[1, 2, 3, 4].map((_, i) => (
               <div key={i} style={{ minWidth: 200 }}>
                 <Image
-                  src={product.image}
+                  src={imageUrl}
                   alt={product.name}
                   width={200}
                   height={200}
@@ -229,7 +300,7 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
               </div>
             ))}
           </div>
-        </section>
+        </section> */}
 
         {/* Description */}
         <section style={{ marginTop: 40 }}>
@@ -238,7 +309,7 @@ export default async function ProductDetailPage(props: ProductDetailPageProps) {
         </section>
 
         {/* Characteristics */}
-        <section style={{ marginTop: 40 }}>
+        <section id="characteristics" style={{ marginTop: 40, scrollMarginTop: 96 }}>
           <h2>Характеристики</h2>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>

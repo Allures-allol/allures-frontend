@@ -26,11 +26,45 @@ type Product = {
 
 async function getProducts(): Promise<Product[]> {
   try {
-    const res = await fetch("https://api.alluresallol.com/products", {
+    const url = new URL("https://api.alluresallol.com/product/products/");
+    url.searchParams.set("offset", "0");
+    url.searchParams.set("limit", "20");
+    url.searchParams.set("sort", "-id");
+
+    const res = await fetch(url.toString(), {
       cache: "no-store",
+      headers: { accept: "application/json" },
+      redirect: "follow",
+      // @ts-ignore
+      next: { revalidate: 0 },
     });
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
+
+    const raw = await res.text();
+
+    if (!res.ok) {
+      console.error("API error:", res.status, res.statusText, raw.slice(0, 200));
+      return [];
+    }
+
+    let data: any = null;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      console.error("Ответ не JSON. Первые 200 символов:", raw.slice(0, 200));
+      return [];
+    }
+
+    const list = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data?.items)
+      ? data.items
+      : [];
+
+    if (!Array.isArray(list)) return [];
+
+    return list as Product[];
   } catch (err) {
     console.error("Ошибка при загрузке товаров:", err);
     return [];
@@ -76,7 +110,7 @@ export default async function Home() {
           <button className="categories-list__button">Меблі</button>
         </div>
       </div>
-      <main style={{ padding: "20px", background: "#fafafa" }}>
+      <main style={{ padding: "20px", background: "#fafafa", fontFamily:"sans-serif"}}>
         <h1 style={{ textAlign: "center", fontSize: 32, fontWeight: 700 }}>
           Маркетплейс
         </h1>
@@ -94,14 +128,7 @@ export default async function Home() {
             <div
               key={p.id}
               style={{
-                background: "#fff",
-                borderRadius: "8px",
-                padding: "16px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                 position: "relative",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
                 height: "380px",
               }}
             >
@@ -114,31 +141,45 @@ export default async function Home() {
                   border: "none",
                   fontSize: "20px",
                   cursor: "pointer",
+                  zIndex: 2,
                 }}
               >
                 ♡
               </button>
+              <Link href={`/products/${p.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    height: "380px",
+                  }}
+                >
+                  <img
+                    src={p.image}
+                    alt={p.name}
+                    style={{ width: "100%", height: "200px", objectFit: "contain" }}
+                  />
 
-              <img
-                src={p.image}
-                alt={p.name}
-                style={{ width: "100%", height: "200px", objectFit: "contain" }}
-              />
+                  <h3 style={{ margin: "12px 0", fontSize: 18 }}>{p.name}</h3>
+                  <p style={{ fontSize: 14, color: "#555" }}>{p.description}</p>
 
-              <h3 style={{ margin: "12px 0", fontSize: 18 }}>{p.name}</h3>
-              <p style={{ fontSize: 14, color: "#555" }}>{p.description}</p>
-
-              <div style={{ margin: "12px 0" }}>
-                {p.is_discount && (
-                  <span style={{ textDecoration: "line-through", marginRight: 8 }}>
-                    {p.old_price.toLocaleString("uk-UA")} ₴
-                  </span>
-                )}
-                <span style={{ fontWeight: 700 }}>
-                  {p.price.toLocaleString("uk-UA")} ₴
-                </span>
-              </div>
-
+                  <div style={{ margin: "12px 0" }}>
+                    {p.is_discount && (
+                      <span style={{ textDecoration: "line-through", marginRight: 8 }}>
+                        {p.old_price.toLocaleString("uk-UA")} ₴
+                      </span>
+                    )}
+                    <span style={{ fontWeight: 700 }}>
+                      {p.price.toLocaleString("uk-UA")} ₴
+                    </span>
+                  </div>
+                </div>
+              </Link>
               <button
                 style={{
                   position: "absolute",
@@ -152,6 +193,7 @@ export default async function Home() {
                   padding: "12px 0",
                   cursor: "pointer",
                   textAlign: "center",
+                  zIndex: 2,
                 }}
               >
                 В корзину
@@ -177,6 +219,11 @@ export default async function Home() {
             </div>
           </Link>
         </div>
+        {products.length === 0 && (
+          <p style={{ textAlign: 'center', color: '#888', marginTop: 24 }}>
+            Не вдалося завантажити товари. Перевірте API або оновіть сторінку.
+          </p>
+        )}
       </main>
       {/* Популярні категорії */}
       {(() => {

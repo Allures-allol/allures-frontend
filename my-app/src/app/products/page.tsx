@@ -17,13 +17,47 @@ type Product = {
 
 async function getProductsByCategory(category: string): Promise<Product[]> {
   try {
-    const res = await fetch(
-      `https://api.alluresallol.com/products?category=${encodeURIComponent(category)}`,
-      { cache: 'no-store' }
-    );
+    const res = await fetch('https://api.alluresallol.com/product/products/?offset=0&limit=20&sort=-id', {
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+    });
+
+    if (!res.ok) {
+      const raw = await res.text();
+      console.error('API error:', res.status, res.statusText, raw.slice(0, 200));
+      return [];
+    }
+
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
+
+    const list: any[] = Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data)
+      ? data
+      : [];
+
+    // Фильтрация по категории без изменения верстки: пытаемся сопоставить по имени или id
+    const normalized = (category || '').toString().trim().toLowerCase();
+    const filtered = normalized
+      ? list.filter((p: any) => {
+          const name = (p.category_name || '').toString().toLowerCase();
+          const idStr = (p.category_id != null ? String(p.category_id) : '').toLowerCase();
+          return name === normalized || idStr === normalized;
+        })
+      : list;
+
+    // Приводим к ожидаемой форме Product без изменения разметки
+    return filtered.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      old_price: p.old_price,
+      image: p.image,
+      is_discount: p.is_discount,
+    })) as Product[];
+  } catch (err) {
+    console.error('Ошибка при загрузке товарів:', err);
     return [];
   }
 }

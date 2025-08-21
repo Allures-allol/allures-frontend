@@ -30,10 +30,28 @@ export default function Header() {
     setIsAuthenticated(!!token);
   }, []);
 
-  const handleUserClick = () => {
-    if (isAuthenticated) {
-      router.push('/profile');
-    } else {
+  const handleUserClick = async () => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      if (!token) {
+        router.push('/auth');
+        return;
+      }
+      const res = await fetch('https://api.alluresallol.com/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: 'application/json',
+        },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        router.push('/profile');
+      } else {
+        // токен недействителен — очищаем и отправляем на авторизацию
+        localStorage.removeItem('authToken');
+        router.push('/auth');
+      }
+    } catch {
       router.push('/auth');
     }
   };
