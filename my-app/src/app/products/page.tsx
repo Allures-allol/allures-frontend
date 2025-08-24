@@ -1,3 +1,4 @@
+'use client';
 // src/app/products/[category]/page.tsx
 import React from 'react';
 import Link from 'next/link';
@@ -15,55 +16,80 @@ type Product = {
   is_discount: boolean;
 };
 
-async function getProductsByCategory(category: string): Promise<Product[]> {
-  try {
-    const res = await fetch('https://api.alluresallol.com/product/products/?offset=0&limit=20&sort=-id', {
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
+function getProductsByCategory(category: string, offset = 0, limit = 20): Promise<{ products: Product[]; total: number }> {
+  return fetch(`https://api.alluresallol.com/product/products/?offset=${offset}&limit=${limit}&sort=-id`, {
+    cache: 'no-store',
+    headers: { accept: 'application/json' },
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const raw = await res.text();
+        console.error('API error:', res.status, res.statusText, raw.slice(0, 200));
+        return { products: [], total: 0 };
+      }
+
+      const data = await res.json();
+
+      const list: any[] = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+        ? data
+        : [];
+
+      // Фильтрация по категории без изменения верстки: пытаемся сопоставить по имени или id
+      const normalized = (category || '').toString().trim().toLowerCase();
+
+      const imageFiltered = list.filter((p: any) => p.image && p.image.trim() !== '');
+
+      const filtered = normalized
+        ? imageFiltered.filter((p: any) => {
+            const name = (p.category_name || '').toString().toLowerCase();
+            const idStr = (p.category_id != null ? String(p.category_id) : '').toLowerCase();
+            return name === normalized || idStr === normalized;
+          })
+        : imageFiltered;
+
+      return {
+        products: filtered.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          price: p.price,
+          old_price: p.old_price,
+          image: p.image,
+          is_discount: p.is_discount,
+        })),
+        total: filtered.length
+      };
+    })
+    .catch((err) => {
+      console.error('Ошибка при загрузке товарів:', err);
+      return { products: [], total: 0 };
     });
-
-    if (!res.ok) {
-      const raw = await res.text();
-      console.error('API error:', res.status, res.statusText, raw.slice(0, 200));
-      return [];
-    }
-
-    const data = await res.json();
-
-    const list: any[] = Array.isArray(data?.items)
-      ? data.items
-      : Array.isArray(data)
-      ? data
-      : [];
-
-    // Фильтрация по категории без изменения верстки: пытаемся сопоставить по имени или id
-    const normalized = (category || '').toString().trim().toLowerCase();
-    const filtered = normalized
-      ? list.filter((p: any) => {
-          const name = (p.category_name || '').toString().toLowerCase();
-          const idStr = (p.category_id != null ? String(p.category_id) : '').toLowerCase();
-          return name === normalized || idStr === normalized;
-        })
-      : list;
-
-    // Приводим к ожидаемой форме Product без изменения разметки
-    return filtered.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      price: p.price,
-      old_price: p.old_price,
-      image: p.image,
-      is_discount: p.is_discount,
-    })) as Product[];
-  } catch (err) {
-    console.error('Ошибка при загрузке товарів:', err);
-    return [];
-  }
 }
 
-export default async function CategoryPage({ params }: any) {
-  const products = await getProductsByCategory(params.category);
+export default function CategoryPage({ params }: any) {
+  const [products, setProducts] = React.useState<Product[]>([]);
+  const [offset, setOffset] = React.useState(0);
+  const [limit, setLimit] = React.useState(20);
+  const [totalCount, setTotalCount] = React.useState(0);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const offsetParam = parseInt(searchParams.get('offset') || '0');
+    const limitParam = parseInt(searchParams.get('limit') || '20');
+    setOffset(offsetParam);
+    setLimit(limitParam);
+
+    getProductsByCategory(params.category, offsetParam, limitParam)
+      .then(({ products, total }) => {
+        setProducts(products);
+        setTotalCount(total);
+      })
+      .catch(console.error);
+  }, [params.category]);
 
   return (
     <>
@@ -136,7 +162,8 @@ export default async function CategoryPage({ params }: any) {
           <h1 className={styles.title}>{params.category}</h1>
           <span className={styles.count}>Знайдено {products.length} товарів</span>
           <div className={styles.grid}>
-            {products.map(p => (
+            {products
+              .map(p => (
               <Link href={`/products/${p.id}`} key={p.id} className={styles.cardLink}>
                 <div className={styles.card}>
                   <img src={p.image} alt={p.name} className={styles.image}/>
@@ -153,6 +180,17 @@ export default async function CategoryPage({ params }: any) {
                   </p>
                   <div className={styles.detailBtn}>Деталі</div>
                 </div>
+              </Link>
+            ))}
+          </div>
+          <div className={styles.pagination}>
+            {Array.from({ length: Math.ceil(totalCount / limit) }, (_, i) => (
+              <Link
+                key={i}
+                href={`/products/${params.category}?offset=${i * limit}&limit=${limit}`}
+                className={i * limit === offset ? styles.activePage : ''}
+              >
+                {i + 1}
               </Link>
             ))}
           </div>

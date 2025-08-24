@@ -36,6 +36,8 @@ async function getProduct(id: string): Promise<Product | null> {
       category_name: String(raw.category_name ?? ""),
     };
 
+  
+
     return mapped;
   } catch (e) {
     console.error("Ошибка при загрузке товара:", e);
