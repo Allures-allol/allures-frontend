@@ -1,10 +1,21 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   images: {
-    domains: [
-      'bcxrmegesyvkbpzvljpc.supabase.co',
-      'api.alluresallol.com'
+    // Replaced deprecated `domains` with `remotePatterns`
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'bcxrmegesyvkbpzvljpc.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.alluresallol.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };

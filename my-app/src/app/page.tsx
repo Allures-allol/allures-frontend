@@ -24,6 +24,59 @@ type Product = {
   product_type: string;
 };
 
+const fmtUA = (n: unknown) => {
+  const num = typeof n === 'string' ? Number(n) : (n as number);
+  return Number.isFinite(num) ? (num as number).toLocaleString('uk-UA') : '—';
+};
+
+const imgSrc = (src?: string | null) => {
+  if (!src) return '/placeholder.png';
+  if (src.startsWith('http')) return src;
+  // если API отдаёт относительный путь — подцепим домен
+  return `https://api.alluresallol.com${src.startsWith('/') ? '' : '/'}${src}`;
+};
+
+const catSectionStyle: React.CSSProperties = {
+  maxWidth: '1200px',
+  margin: '24px 0 0 170px',
+};
+const catTitleStyle: React.CSSProperties = {
+  fontSize: 20,
+  fontWeight: 700,
+  margin: '0 0 10px 0',
+  color: '#0f172a',
+};
+const catListStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: 10,
+};
+const catBtnBase: React.CSSProperties = {
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  border: '1px solid #3b70f6',
+  background: '#ffffff',
+  color: '#3b70f6',
+  padding: '8px 14px',
+  borderRadius: 9999,
+  fontSize: 14,
+  lineHeight: 1,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background-color .15s ease, color .15s ease, box-shadow .15s ease, transform .05s ease',
+  boxShadow: '0 0 0 0 rgba(59,112,246,0.35)',
+  userSelect: 'none',
+  whiteSpace: 'nowrap',
+};
+const catBtnActive: React.CSSProperties = {
+  ...catBtnBase,
+  background: 'linear-gradient(180deg, #3b70f6 0%, #2f60e3 100%)',
+  color: '#ffffff',
+  borderColor: 'transparent',
+  boxShadow: '0 6px 14px rgba(59,112,246,0.32), inset 0 -2px 0 rgba(0,0,0,0.15)',
+};
+
 async function getProducts(): Promise<Product[]> {
   try {
     const url = new URL("https://api.alluresallol.com/product/products/");
@@ -64,7 +117,28 @@ async function getProducts(): Promise<Product[]> {
 
     if (!Array.isArray(list)) return [];
 
-    return list as Product[];
+    // Нормализация, чтобы исключить undefined и строки
+    const mapped: Product[] = list.map((p: any) => ({
+      id: Number(p.id ?? 0),
+      name: String(p.name ?? ''),
+      description: String(p.description ?? ''),
+      price: Number(p.price ?? 0),
+      old_price: Number(p.old_price ?? 0),
+      image: typeof p.image === 'string' ? p.image : '',
+      status: String(p.status ?? ''),
+      current_inventory: Number(p.current_inventory ?? 0),
+      is_hit: Boolean(p.is_hit),
+      is_discount: Boolean(p.is_discount),
+      is_new: Boolean(p.is_new),
+      created_at: String(p.created_at ?? ''),
+      updated_at: String(p.updated_at ?? ''),
+      category_id: Number(p.category_id ?? 0),
+      category_name: String(p.category_name ?? ''),
+      subcategory: String(p.subcategory ?? ''),
+      product_type: String(p.product_type ?? ''),
+    }));
+
+    return mapped;
   } catch (err) {
     console.error("Ошибка при загрузке товаров:", err);
     return [];
@@ -96,18 +170,15 @@ export default async function Home() {
         </div>
       </div>
       {/* Популярні товари */}
-      <div
-        className="categories-section"
-        style={{ marginLeft: "170px", marginRight: "auto" }}
-      >
-        <h2 className="categories-section__title">Популярні товари</h2>
-        <div className="categories-list">
-          <button className="categories-list__button">Одяг та взуття</button>
-          <button className="categories-list__button categories-list__button--active">Електроніка</button>
-          <button className="categories-list__button">Спорт</button>
-          <button className="categories-list__button">Іграшки</button>
-          <button className="categories-list__button">Краса</button>
-          <button className="categories-list__button">Меблі</button>
+      <div style={catSectionStyle}>
+        <h2 style={catTitleStyle}>Популярні товари</h2>
+        <div style={catListStyle}>
+          <button style={catBtnBase}>Одяг та взуття</button>
+          <button style={catBtnActive}>Електроніка</button>
+          <button style={catBtnBase}>Спорт</button>
+          <button style={catBtnBase}>Іграшки</button>
+          <button style={catBtnBase}>Краса</button>
+          <button style={catBtnBase}>Меблі</button>
         </div>
       </div>
       <main style={{ padding: "20px", background: "#fafafa", fontFamily:"sans-serif"}}>
@@ -124,7 +195,7 @@ export default async function Home() {
             margin: "40px auto 0",
           }}
         >
-          {products.slice(0, 4).map((p) => (
+          {(Array.isArray(products) ? products : []).slice(0, 4).map((p) => (
             <div
               key={p.id}
               style={{
@@ -160,8 +231,10 @@ export default async function Home() {
                   }}
                 >
                   <img
-                    src={p.image}
-                    alt={p.name}
+                    src={imgSrc(p.image)}
+                    alt={p.name || 'product'}
+                    loading="lazy"
+                    decoding="async"
                     style={{ width: "100%", height: "200px", objectFit: "contain" }}
                   />
 
@@ -169,13 +242,13 @@ export default async function Home() {
                   <p style={{ fontSize: 14, color: "#555" }}>{p.description}</p>
 
                   <div style={{ margin: "12px 0" }}>
-                    {p.is_discount && (
+                    {p.is_discount && Number(p.old_price) > 0 && (
                       <span style={{ textDecoration: "line-through", marginRight: 8 }}>
-                        {p.old_price.toLocaleString("uk-UA")} ₴
+                        {fmtUA(p.old_price)} ₴
                       </span>
                     )}
                     <span style={{ fontWeight: 700 }}>
-                      {p.price.toLocaleString("uk-UA")} ₴
+                      {fmtUA(p.price)} ₴
                     </span>
                   </div>
                 </div>

@@ -1,8 +1,11 @@
+'use client';
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useParams } from 'next/navigation';
 import Header from '../../../components/headers/header';
 import Footer from '../../../components/footers/footer';
+import AddToCartButton from '../../../components/cart/AddToCartButton';
 
 type Product = {
   id: number;
@@ -17,40 +20,57 @@ type Product = {
 
 async function getProduct(id: string): Promise<Product | null> {
   try {
-    const res = await fetch(
-      `https://api.alluresallol.com/product/products/${id}`,
-      { cache: "no-store" }
-    );
-
+    const res = await fetch(`https://api.alluresallol.com/product/products/${id}`, { cache: 'no-store' });
     if (!res.ok) return null;
     const raw = await res.json();
-
     const mapped: Product = {
       id: Number(raw.id),
-      name: String(raw.name ?? ""),
-      description: String(raw.description ?? ""),
+      name: String(raw.name ?? ''),
+      description: String(raw.description ?? ''),
       price: Number(raw.price ?? 0),
       old_price: Number(raw.old_price ?? 0),
-      image: String(raw.image ?? ""),
+      image: String(raw.image ?? ''),
       is_discount: Boolean(raw.is_discount),
-      category_name: String(raw.category_name ?? ""),
+      category_name: String(raw.category_name ?? ''),
     };
-
-  
-
     return mapped;
   } catch (e) {
-    console.error("Ошибка при загрузке товара:", e);
+    console.error('Ошибка при загрузке товара:', e);
     return null;
   }
 }
-type ProductDetailPageProps = {
-  params: Promise<{ id: string }>;
-};
 
-export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
-  const { id } = await params;
-  const product = await getProduct(id);
+export default function ProductDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = (params?.id as string) || '';
+
+  const [product, setProduct] = React.useState<Product | null>(null);
+  const [loading, setLoading] = React.useState<boolean>(true);
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!id) { setLoading(false); return; }
+      try {
+        setLoading(true);
+        const p = await getProduct(id);
+        if (alive) setProduct(p);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <div style={{ padding: 40, textAlign: 'center' }}>Завантаження…</div>
+        <Footer />
+      </>
+    );
+  }
 
   if (!product) {
     return (
@@ -69,9 +89,9 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     border: '1px solid #ccc',
     background: '#fff',
     color: '#000',
-  };
+  } as const;
 
-  // placeholder.png — запасная картинка, должна быть в public/
+  // placeholder.png — запасна картинка, повинна бути в public/
   const imageUrl = product.image
     ? (product.image.startsWith('http') ? product.image : `https://api.alluresallol.com${product.image}`)
     : '/placeholder.png';
@@ -135,7 +155,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     e.preventDefault();
     var rect=el.getBoundingClientRect();
     var targetY=rect.top + (window.scrollY||window.pageYOffset) - 96; // header offset
-    smoothScrollTo(targetY, 1000); // 1000ms = медленнее
+    smoothScrollTo(targetY, 1000); // 1000ms = медленніше
   }, true);
 })();
     `
@@ -228,10 +248,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
 
             {/* Price & actions */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 32, fontWeight: 700 }}>
-                {product.price.toLocaleString('uk-UA')} ₴
-              </span>
-              <button
+              <AddToCartButton
+                id={product.id}
+                name={product.name}
+                price={product.price}
+                image={product.image}
+                goToCart
                 style={{
                   padding: '12px 32px',
                   background: '#0070f3',
@@ -242,8 +264,13 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 }}
               >
                 Купити
-              </button>
-              <button
+              </AddToCartButton>
+
+              <AddToCartButton
+                id={product.id}
+                name={product.name}
+                price={product.price}
+                image={product.image}
                 style={{
                   padding: '12px 32px',
                   background: '#fff',
@@ -254,7 +281,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 }}
               >
                 Додати в кошик
-              </button>
+              </AddToCartButton>
             </div>
 
             {/* Delivery options */}
@@ -269,7 +296,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               <tbody>
                 {[
                   ['Самовивіз з пунктів видачі Allures', 'Завтра з 12:00', 'Безкоштовно'],
-                  ['Кур’єр на вашу адресу', 'Завтра з 10:00', 'Безкоштовно від 1 000 ₴'],
+                  ['Кур’єр на вашу адресу', 'Завтра з 10:00', 'Безкоштовно від 1\u00A0000\u00A0₴'],
                   ['Доставка Нової Пошти', 'Відправимо завтра', 'За тарифами перевізника'],
                 ].map((row, i) => (
                   <tr key={i} style={{ borderTop: i > 0 ? '1px solid #eee' : 'none' }}>
@@ -284,25 +311,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             </table>
           </div>
         </div>
-
-        {/* Related products */}
-        {/* <section style={{ marginTop: 40 }}>
-          <h2>Схожі товари</h2>
-          <div style={{ display: 'flex', gap: 16, overflowX: 'auto', padding: '12px 0' }}>
-            {[1, 2, 3, 4].map((_, i) => (
-              <div key={i} style={{ minWidth: 200 }}>
-                <Image
-                  src={imageUrl}
-                  alt={product.name}
-                  width={200}
-                  height={200}
-                  style={{ borderRadius: 8, objectFit: 'cover' }}
-                />
-                <p style={{ fontSize: 14, margin: '8px 0 0' }}>{product.name}</p>
-              </div>
-            ))}
-          </div>
-        </section> */}
 
         {/* Description */}
         <section style={{ marginTop: 40 }}>

@@ -1,25 +1,6 @@
-.dropdown {
-  background-color: white;
-  border-top: 1px solid #ccc;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  padding: 10px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.dropdownItem {
-  text-decoration: none;
-  color: #333;
-  font-size: 16px;
-  padding: 6px 8px;
-  transition: background 0.2s, color 0.2s;
-  border-radius: 4px;
-}
-
-.dropdownItem:hover {
-  background-color: #f0f4ff;
-  color: #1a5eff;
+:global(*) {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
 }
 .header {
   width: 100%;
@@ -82,6 +63,7 @@
   border: 1px solid #ccc;
   border-radius: 4px;
   overflow: hidden;
+  position: relative;
 }
 
 .searchBlock input {
@@ -123,3 +105,201 @@
   margin-left: 20px;
   transform: translateY(2px);
 }
+
+/* Контейнер поля поиска: нужен для позиционирования дропдауна под инпутом */
+.searchDropdownContainer {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-height: 400px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  z-index: 1000;
+  padding: 8px 0;
+}
+
+/* Список результатов */
+.searchDropdownList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Элемент результата */
+.suggestionItem {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.suggestionItem:hover,
+.activeSuggestion {
+  background: #f5f8ff;
+}
+
+/* Внутренняя строка результата */
+.suggestionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Фиксированная миниатюра — картинка больше не раздувается */
+.suggestionThumbBox {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Help Safari clip properly; include standard property for compatibility */
+  mask-image: radial-gradient(white, black);
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  
+}
+
+/* Сама картинка — строго внутри бокса; Safari-safe sizing */
+.suggestionThumb {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
+  display: block;
+  -webkit-user-drag: none;
+}
+
+/* Safari-safe fallback: force any <img> inside the box to fit */
+.suggestionThumbBox :global(img) {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
+  display: block;
+}
+
+/* Заглушка, если нет картинки */
+.suggestionThumbFallback {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+/* Текстовая часть */
+.suggestionCol {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.suggestionName {
+  font-size: 14px;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.suggestionPrice {
+  font-size: 13px;
+  color: #1a5eff;
+  margin-top: 2px;
+}
+
+/* Подсветка совпадения — только внутри контейнера дропдауна (валидно для CSS-модулей) */
+.searchDropdownContainer mark {
+  background: #ffef9c;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* Небольшое увеличение миниатюр на больших экранах */
+@media (min-width: 768px) {
+  .suggestionThumbBox { width: 28px; height: 28px; flex-basis: 28px; }
+}
+@media (min-width: 1280px) {
+  .suggestionThumbBox { width: 32px; height: 32px; flex-basis: 32px; }
+}
+/* ==========================
+   MUI Autocomplete overrides
+   ========================== */
+
+/* Make the field look consistent with the site styles */
+.searchBlock :global(.MuiAutocomplete-root) { width: 100%; }
+.searchBlock :global(.MuiOutlinedInput-root) {
+  min-height: 40px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  padding-right: 8px; /* room for adornments */
+}
+.searchBlock :global(.MuiOutlinedInput-root:hover) { border-color: #bdbdbd; }
+.searchBlock :global(.MuiOutlinedInput-root.Mui-focused) {
+  border-color: #1a5eff;
+  box-shadow: 0 0 0 3px rgba(26, 94, 255, 0.12);
+}
+.searchBlock :global(.MuiOutlinedInput-notchedOutline) { border: none; }
+.searchBlock :global(.MuiInputBase-input) { padding: 10px 12px; }
+.searchBlock :global(.MuiIconButton-root) { margin-left: 6px; }
+
+/* Popper (dropdown) */
+:global(.MuiAutocomplete-popper) { z-index: 1300; }
+:global(.MuiAutocomplete-paper) {
+  margin-top: 6px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+:global(.MuiAutocomplete-listbox) { padding: 6px 4px; max-height: 400px; }
+:global(.MuiAutocomplete-option) {
+  margin: 2px 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+:global(.MuiAutocomplete-option.Mui-focused),
+:global(.MuiAutocomplete-option[aria-selected='true']),
+:global(.MuiAutocomplete-option:hover) { background: #f5f8ff; }
+
+:global(.MuiAutocomplete-noOptions),
+:global(.MuiAutocomplete-loading) {
+  padding: 10px 12px;
+  color: #757575;
+}
+
+/* Keep avatars (thumbnails) small inside dropdown — also Safari-safe */
+:global(.MuiAutocomplete-popper .MuiAvatar-root) {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #eee;
+  overflow: hidden;
+}
+:global(.MuiAutocomplete-popper .MuiAvatar-root img) {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  display: block;
+  -webkit-user-drag: none;
+}
+
+/* Typography tweaks for option text */
+:global(.MuiListItem-root) { padding-left: 4px; padding-right: 4px; }
+:global(.MuiListItemText-primary) { font-size: 14px; line-height: 1.2; }
+:global(.MuiListItemText-secondary) { font-size: 13px; color: #1a5eff; }

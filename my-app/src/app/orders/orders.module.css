@@ -1,0 +1,82 @@
+.page {
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 24px;
+}
+
+.left {}
+.right {}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tab {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #E6E6E6;
+  background: #fff;
+  cursor: pointer;
+}
+.tabActive {
+  border-color: #1a5eff;
+  box-shadow: 0 0 0 3px rgba(26, 94, 255, 0.12);
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #E6E6E6;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field span { font-size: 13px; color: #666; }
+.field input {
+  border: 1px solid #DADADA;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.formActions { margin-top: 12px; }
+.primaryBtn {
+  padding: 10px 16px;
+  background: #1a5eff;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.items { display: flex; flex-direction: column; gap: 8px; }
+.itemRow { display: grid; grid-template-columns: 48px 1fr auto 24px; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f2f2f2; }
+.thumbBox { width: 44px; height: 44px; border: 1px solid #eee; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #fff; }
+.itemInfo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.itemName { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qtyBox { display: inline-flex; gap: 8px; align-items: center; background: #f7f8ff; border: 1px solid #e1e6ff; padding: 4px 8px; border-radius: 999px; }
+.qtyBox button { background: none; border: none; font-size: 16px; cursor: pointer; }
+.price { font-weight: 700; white-space: nowrap; }
+.removeBtn { background: none; border: none; font-size: 18px; color: #999; cursor: pointer; }
+
+.totalRow { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+.grand { font-weight: 700; font-size: 16px; }
+.checkoutBtn { margin-top: 12px; width: 100%; padding: 12px; border-radius: 10px; border: none; background: #1a5eff; color: #fff; font-weight: 600; cursor: pointer; }
+
+.empty { text-align: center; color: #777; padding: 24px 0; }
+
+@media (max-width: 1024px) {
+  .container { grid-template-columns: 1fr; }
+}
