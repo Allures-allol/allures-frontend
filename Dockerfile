@@ -1,17 +1,21 @@
 FROM node:lts-alpine
 
-ENV NODE_ENV=production
 WORKDIR /usr/src/app
 
+# Копируем package.json и package-lock.json
 COPY my-app/package*.json ./
 
-# Обновляем зависимости перед установкой и ставим с игнором peerDeps
-RUN npm install @mui/material@latest --legacy-peer-deps \
-    && npm install --production --legacy-peer-deps
+# Ставим все зависимости для билда, включая dev
+RUN npm install --legacy-peer-deps
 
+# Копируем весь фронт
 COPY my-app/. .
 
+# Собираем production билд
 RUN npm run build
+
+# После билда можно удалить dev-зависимости, чтобы образ был легче
+RUN npm prune --production
 
 EXPOSE 3000
 CMD ["npm", "start"]
