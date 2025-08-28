@@ -9,7 +9,7 @@ RUN apk add --no-cache python3 make g++
 
 COPY my-app/package*.json ./
 
-RUN npm install --production --silent
+RUN npm install --production --verbose
 
 COPY my-app/. .
 
@@ -20,3 +20,4 @@ RUN chown -R node /usr/src/app
 USER node
 
 CMD ["npm", "start"]
+
