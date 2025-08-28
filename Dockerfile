@@ -4,12 +4,13 @@ ENV NODE_ENV=production
 
 WORKDIR /usr/src/app
 
-# копируем package.json из my-app
+# Устанавливаем зависимости для сборки native модулей
+RUN apk add --no-cache python3 make g++
+
 COPY my-app/package*.json ./
 
 RUN npm install --production --silent
 
-# копируем всё приложение
 COPY my-app/. .
 
 EXPOSE 3000
