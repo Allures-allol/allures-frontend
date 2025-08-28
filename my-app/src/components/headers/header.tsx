@@ -28,93 +28,158 @@ export type Product = {
   category_id?: number | null;
 };
 
-// Helper to fetch **all** categories with robust pagination handling
+// Helper to fetch **all** categories with robust fallbacks (no assumptions about shape)
 async function fetchAllCategories(): Promise<Category[]> {
-  const base = 'https://api.alluresallol.com/product/products/categories';
-  const limit = 100;
-  let offset = 0;
-  const out: Category[] = [];
-  let total: number | null = null;
+  const candidates = [
+    // локальний проксі через rewrites у next.config.ts (уникає CORS)
+    '/api/categories',
+    '/api/categories/',
+    // як фолбек — прямі адреси
+    'https://api.alluresallol.com/product/categories',
+    'https://api.alluresallol.com/product/categories/',
+    'https://api.alluresallol.com/product/products/categories',
+  ];
 
-  for (let page = 0; page < 200; page += 1) { // generous safety cap
-    const url = `${base}?limit=${limit}&offset=${offset}`;
-    const res = await fetch(url, {
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-    });
-    if (!res.ok) break;
-    const json = await res.json();
+  const tryMap = (json: any): Category[] => {
+    const arrays: any[] = [
+      Array.isArray(json) ? json : null,
+      Array.isArray(json?.items) ? json.items : null,
+      Array.isArray(json?.results) ? json.results : null,
+      Array.isArray(json?.data) ? json.data : null,
+      Array.isArray(json?.categories) ? json.categories : null,
+    ].filter(Boolean) as any[];
 
-    // Try to read total from common fields if backend provides it
-    if (total == null) {
-      total =
-        (typeof json?.total === 'number' && json.total) ||
-        (typeof json?.count === 'number' && json.count) ||
-        (typeof json?.pagination?.total === 'number' && json.pagination.total) ||
-        null;
-    }
-
-    const items: any[] = Array.isArray(json?.items)
-      ? json.items
-      : Array.isArray(json)
-      ? json
-      : (json?.results ?? []);
-
-    const batch: Category[] = items
+    const first = arrays[0] || [];
+    return first
       .map((c: any) => ({
-        id: c.id ?? c.category_id ?? c.slug ?? c.value ?? '',
-        name: c.name ?? c.title ?? c.label ?? '',
-        description: c.description ?? null,
-        category_id: c.category_id ?? (typeof c.id === 'number' ? c.id : null),
+        id: c?.id ?? c?.category_id ?? c?.slug ?? c?.value ?? '',
+        name: c?.name ?? c?.title ?? c?.label ?? '',
+        description: c?.description ?? null,
+        category_id: c?.category_id ?? (typeof c?.id === 'number' ? c.id : null),
       }))
       .filter((c: Category) => c && c.name);
+  };
 
-    out.push(...batch);
-
-    // Exit conditions:
-    // 1) We reached declared total
-    if (typeof total === 'number' && out.length >= total) break;
-    // 2) Last page smaller than limit
-    if (items.length < limit) break;
-
-    offset += limit;
-  }
-
-  // If backend returned everything at once (no pagination fields), try a one-shot big request as a fallback
-  if (out.length === 0) {
-    const resBig = await fetch(`${base}?limit=1000&offset=0`, {
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-    });
-    if (resBig.ok) {
-      const json = await resBig.json();
-      const items: any[] = Array.isArray(json?.items)
-        ? json.items
-        : Array.isArray(json)
-        ? json
-        : (json?.results ?? []);
-      const batch: Category[] = items
-        .map((c: any) => ({
-          id: c.id ?? c.category_id ?? c.slug ?? c.value ?? '',
-          name: c.name ?? c.title ?? c.label ?? '',
-          description: c.description ?? null,
-          category_id: c.category_id ?? (typeof c.id === 'number' ? c.id : null),
-        }))
-        .filter((c: Category) => c && c.name);
-      out.push(...batch);
+  // 1) Без параметров (часто 405/400 возникают из-за query-строки)
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const mapped = tryMap(json);
+      if (mapped.length) {
+        // стабилизируем список: уникализируем по id и сортируем по имени
+        const seen = new Set<string>();
+        const deduped = mapped.filter((c) => {
+          const key = String(c.id ?? c.category_id ?? c.name);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return deduped.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+      }
+    } catch (e) {
+      // пробуем следующий вариант
     }
   }
 
-  // de-duplicate and sort by name for stable UI
-  const seen = new Set<string>();
-  const deduped = out.filter((c) => {
-    const key = String(c.id ?? c.category_id ?? '');
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // 2) Попытка с крупным лимитом (если API всё же ждёт limit/offset)
+  for (const base of candidates) {
+    try {
+      const res = await fetch(`${base}?limit=1000&offset=0`, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const mapped = tryMap(json);
+      if (mapped.length) {
+        const seen = new Set<string>();
+        const deduped = mapped.filter((c) => {
+          const key = String(c.id ?? c.category_id ?? c.name);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        return deduped.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+      }
+    } catch {}
+  }
 
-  return deduped.sort((a, b) => a.name.localeCompare(b.name, 'uk')); 
+  // 2.5) Фолбек: отримуємо категорії з переліку товарів (/product/all)
+  try {
+    const res = await fetch('/api/products-all', { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      const arr: any[] = Array.isArray(json)
+        ? json
+        : Array.isArray(json?.items)
+        ? json.items
+        : Array.isArray(json?.results)
+        ? json.results
+        : [];
+
+      const map = new Map<string, Category>();
+      for (const p of arr) {
+        const cid = p?.category_id ?? null;
+        const cname = p?.category_name ?? null;
+        if (cid != null || cname) {
+          const key = String(cid ?? cname);
+          if (!map.has(key)) {
+            map.set(key, {
+              id: cid ?? key,
+              name: cname ?? key,
+              description: null,
+              category_id: typeof cid === 'number' ? cid : null,
+            });
+          }
+        }
+      }
+      const derived = Array.from(map.values()).filter((c) => c && c.name);
+      if (derived.length) {
+        return derived.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+      }
+    }
+  } catch {}
+
+  // 2.6) Останній фолбек: напряму з зовнішнього /product/all (може впертися у CORS у браузері)
+  try {
+    const res = await fetch('https://api.alluresallol.com/product/categories', { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      const arr: any[] = Array.isArray(json)
+        ? json
+        : Array.isArray((json as any)?.items)
+        ? (json as any).items
+        : Array.isArray((json as any)?.results)
+        ? (json as any).results
+        : [];
+
+      const map = new Map<string, Category>();
+      for (const p of arr) {
+        const cid = (p as any)?.category_id ?? null;
+        const cname = (p as any)?.description ?? null;
+        if (cid != null || cname) {
+          const key = String(cid ?? cname);
+          if (!map.has(key)) {
+            map.set(key, {
+              id: cid ?? key,
+              name: String(cname ?? key),
+              description: String(cname ?? key),
+              category_id: typeof cid === 'number' ? cid : null,
+            });
+          }
+        }
+      }
+      const derived = Array.from(map.values()).filter((c) => c && c.name);
+      if (derived.length) {
+        return derived.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+      }
+    }
+  } catch {}
+
+  // 3) Если всё пусто — лог и пустой массив
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('[categories] список пуст. Возможны причины: CORS, другой формат ответа, нет данных.');
+  }
+  return [];
 }
 
 export default function Header() {
@@ -132,6 +197,19 @@ export default function Header() {
   const [options, setOptions] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
+
+  // Hover intent timer for the categories dropdown
+  const hoverTimerRef = useRef<number | null>(null);
+  const cancelClose = () => {
+    if (hoverTimerRef.current) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    hoverTimerRef.current = window.setTimeout(() => setCatAnchorEl(null), 120);
+  };
 
   useEffect(() => {
     // Example: check for an auth token in localStorage
@@ -322,6 +400,11 @@ export default function Header() {
         ref={catalogBtnRef}
         className={styles.catalogBar}
         onClick={(e) => handleToggleCats(e)}
+        onMouseEnter={(e) => { cancelClose(); setCatAnchorEl(e.currentTarget as HTMLElement); }}
+        onMouseLeave={scheduleClose}
+        aria-haspopup="menu"
+        aria-expanded={openCats ? 'true' : 'false'}
+        role="button"
       >
         <div className={styles.catalogContent}>
           <FaBars className={styles.catalogIcon} />
@@ -331,13 +414,21 @@ export default function Header() {
 
       <Popper open={openCats} anchorEl={catAnchorEl} placement="bottom-start" sx={{ zIndex: 1300, width: 420 }}>
         <ClickAwayListener onClickAway={handleCloseCats}>
-          <Paper elevation={3} sx={{ maxHeight: '70vh', overflowY: 'auto', p: 1 }}>
+          <Paper
+            elevation={3}
+            sx={{ maxHeight: '70vh', overflowY: 'auto', p: 1 }}
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
+          >
             {categoriesLoading ? (
               <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircularProgress size={18} /> Завантаження...
               </Box>
             ) : (
               <List dense disablePadding>
+                {(!categoriesLoading && categories.length === 0) && (
+                  <Box sx={{ p: 2, color: '#6b7280' }}>Категорії відсутні або тимчасово недоступні</Box>
+                )}
                 {categories.map((cat) => {
                   const cid = (cat.id ?? cat.category_id) as any;
                   return (
@@ -350,8 +441,8 @@ export default function Header() {
                     >
                       <ListItemButton>
                         <ListItemText
-                          primary={cat.name}
-                          secondary={cat.description || undefined}
+                          primary={(cat.description && cat.description.trim()) ? cat.description : cat.name}
+                          secondary={(cat.description && cat.name && cat.description.trim() !== cat.name.trim()) ? cat.name : undefined}
                           primaryTypographyProps={{ noWrap: true }}
                           secondaryTypographyProps={{ noWrap: true }}
                         />

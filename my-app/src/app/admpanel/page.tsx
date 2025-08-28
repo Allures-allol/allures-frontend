@@ -64,14 +64,23 @@ export type PaymentRow = {
 
 export type ProductRow = {
   id: number | string;
+  company_id?: number;
   name: string;
+  description?: string;
   price: number;
+  status?: string;
+  current_inventory?: number;
+  category_id?: number | string;
+  category_name?: string;
   old_price?: number;
   image?: string;
-  category_name?: string;
+  subcategory?: string;
+  product_type?: string;
+  is_hit?: boolean;
   is_discount?: boolean;
-  description?: string;
-  category_id?: number | string;
+  is_new?: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type ReviewRow = {
@@ -235,45 +244,32 @@ async function fetchPayments(): Promise<PaymentRow[]> {
 
 async function fetchProducts(): Promise<ProductRow[]> {
   try {
-    const base = 'https://api.alluresallol.com/product/products/';
-    const limit = 100; // максимум по твоей схеме API
-    let offset = 0;
-    const out: ProductRow[] = [];
-
-    for (let page = 0; page < 200; page += 1) {
-      const url = `${base}?offset=${offset}&limit=${limit}&sort=-id`;
-      const res = await fetch(url, {
-        cache: 'no-store',
-        headers: { accept: 'application/json' },
-      });
-      if (!res.ok) throw new Error(`Products ${res.status}`);
-
-      const json = await res.json();
-      const items: any[] = Array.isArray(json?.items)
-        ? json.items
-        : Array.isArray(json)
-        ? json
-        : (json?.results ?? []);
-
-      const batch: ProductRow[] = items.map((p: any, i: number) => ({
-        id: p.id ?? (offset + i),
-        name: String(p.name ?? ''),
-        price: Number(p.price ?? 0),
-        old_price: Number(p.old_price ?? 0),
-        image: typeof p.image === 'string' ? p.image : '',
-        category_name: p.category_name ?? '',
-        is_discount: Boolean(p.is_discount),
-        description: typeof p.description === 'string' ? p.description : undefined,
-        category_id: p.category_id ?? undefined,
-      }));
-
-      out.push(...batch);
-
-      if (items.length < limit) break; // последняя страница
-      offset += limit;
-    }
-
-    return out;
+    const url = 'https://api.alluresallol.com/product/all';
+    const res = await fetch(url, { cache: 'no-store', headers: { accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Products ${res.status}`);
+    const json = await res.json();
+    const items: any[] = Array.isArray(json?.items) ? json.items : (Array.isArray(json) ? json : (json?.results ?? []));
+    const list = (Array.isArray(items) ? items : []) as any[];
+    return list.map((p: any) => ({
+      id: p.id,
+      company_id: p.company_id,
+      name: String(p.name ?? ''),
+      description: typeof p.description === 'string' ? p.description : undefined,
+      price: Number(p.price ?? 0),
+      status: p.status ?? undefined,
+      current_inventory: typeof p.current_inventory === 'number' ? p.current_inventory : Number(p.current_inventory ?? 0) || undefined,
+      category_id: p.category_id ?? undefined,
+      category_name: p.category_name ?? undefined,
+      old_price: typeof p.old_price === 'number' ? p.old_price : Number(p.old_price ?? 0) || undefined,
+      image: typeof p.image === 'string' ? p.image : undefined,
+      subcategory: p.subcategory ?? undefined,
+      product_type: p.product_type ?? undefined,
+      is_hit: Boolean(p.is_hit),
+      is_discount: Boolean(p.is_discount),
+      is_new: Boolean(p.is_new),
+      created_at: p.created_at ?? undefined,
+      updated_at: p.updated_at ?? undefined,
+    } as ProductRow));
   } catch (e) {
     console.warn('Products error:', e);
     return [];
@@ -317,7 +313,7 @@ async function fetchCategoriesAll(): Promise<CategoryOption[]> {
 
 async function loadProductById(id: number | string): Promise<ProductRow | null> {
   try {
-    const res = await fetch(`https://api.alluresallol.com/product/products/${id}`, {
+    const res = await fetch(`https://api.alluresallol.com/product/${id}`, {
       cache: 'no-store',
       headers: { accept: 'application/json' },
     });
@@ -325,14 +321,23 @@ async function loadProductById(id: number | string): Promise<ProductRow | null> 
     const p = await res.json();
     return {
       id: p.id,
+      company_id: p.company_id,
       name: String(p.name ?? ''),
+      description: typeof p.description === 'string' ? p.description : undefined,
       price: Number(p.price ?? 0),
-      old_price: Number(p.old_price ?? 0),
-      image: typeof p.image === 'string' ? p.image : '',
-      category_name: p.category_name ?? '',
-      is_discount: Boolean(p.is_discount),
-      description: String(p.description ?? ''),
+      status: p.status ?? undefined,
+      current_inventory: typeof p.current_inventory === 'number' ? p.current_inventory : Number(p.current_inventory ?? 0) || undefined,
       category_id: p.category_id ?? undefined,
+      category_name: p.category_name ?? undefined,
+      old_price: typeof p.old_price === 'number' ? p.old_price : Number(p.old_price ?? 0) || undefined,
+      image: typeof p.image === 'string' ? p.image : undefined,
+      subcategory: p.subcategory ?? undefined,
+      product_type: p.product_type ?? undefined,
+      is_hit: Boolean(p.is_hit),
+      is_discount: Boolean(p.is_discount),
+      is_new: Boolean(p.is_new),
+      created_at: p.created_at ?? undefined,
+      updated_at: p.updated_at ?? undefined,
     } as ProductRow;
   } catch (e) {
     console.warn('loadProductById error', e);
@@ -341,15 +346,23 @@ async function loadProductById(id: number | string): Promise<ProductRow | null> 
 }
 
 async function updateProduct(id: number | string, payload: Partial<ProductRow>): Promise<ProductRow> {
-  const base = 'https://api.alluresallol.com/product/products/';
+  const base = 'https://api.alluresallol.com/product/';
   const body: any = {
+    company_id: payload.company_id,
     name: payload.name,
+    description: payload.description,
     price: payload.price,
+    status: payload.status,
+    current_inventory: payload.current_inventory,
+    category_id: payload.category_id,
+    category_name: payload.category_name, // если API игнорирует — ок
     old_price: payload.old_price,
     image: payload.image,
+    subcategory: payload.subcategory,
+    product_type: payload.product_type,
+    is_hit: payload.is_hit,
     is_discount: payload.is_discount,
-    description: payload.description,
-    category_id: payload.category_id,
+    is_new: payload.is_new,
   };
   Object.keys(body).forEach((k) => body[k] === undefined && delete body[k]);
 
@@ -368,21 +381,27 @@ async function updateProduct(id: number | string, payload: Partial<ProductRow>):
         headers: { 'Content-Type': 'application/json', accept: 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        lastErr = new Error(`${a.method} ${res.status}`);
-        continue;
-      }
+      if (!res.ok) { lastErr = new Error(`${a.method} ${res.status}`); continue; }
       const p = await res.json();
       return {
         id: p.id,
+        company_id: p.company_id ?? body.company_id,
         name: String(p.name ?? body.name ?? ''),
-        price: Number(p.price ?? body.price ?? 0),
-        old_price: Number(p.old_price ?? body.old_price ?? 0),
-        image: typeof p.image === 'string' ? p.image : body.image || '',
-        category_name: p.category_name ?? '',
-        is_discount: Boolean(p.is_discount ?? body.is_discount),
         description: String(p.description ?? body.description ?? ''),
+        price: Number(p.price ?? body.price ?? 0),
+        status: p.status ?? body.status,
+        current_inventory: typeof p.current_inventory === 'number' ? p.current_inventory : body.current_inventory,
         category_id: p.category_id ?? body.category_id,
+        category_name: p.category_name ?? body.category_name,
+        old_price: Number(p.old_price ?? body.old_price ?? 0),
+        image: typeof p.image === 'string' ? p.image : (body.image || ''),
+        subcategory: p.subcategory ?? body.subcategory,
+        product_type: p.product_type ?? body.product_type,
+        is_hit: Boolean(p.is_hit ?? body.is_hit),
+        is_discount: Boolean(p.is_discount ?? body.is_discount),
+        is_new: Boolean(p.is_new ?? body.is_new),
+        created_at: p.created_at ?? undefined,
+        updated_at: p.updated_at ?? undefined,
       } as ProductRow;
     } catch (e) {
       lastErr = e;
@@ -491,12 +510,21 @@ export default function AdminPanelPage() {
   const [editError, setEditError] = React.useState<string | null>(null);
   const [editProductId, setEditProductId] = React.useState<number | string | null>(null);
   const [editForm, setEditForm] = React.useState<Partial<ProductRow>>({
+    company_id: undefined,
     name: '',
+    description: '',
     price: 0,
+    status: '',
+    current_inventory: undefined,
+    category_id: undefined,
+    category_name: '',
     old_price: 0,
     image: '',
+    subcategory: '',
+    product_type: '',
+    is_hit: false,
     is_discount: false,
-    description: '',
+    is_new: false,
   });
 
   const openEdit = async (id: number | string) => {
@@ -506,13 +534,21 @@ export default function AdminPanelPage() {
     const p = await loadProductById(id);
     if (p)
       setEditForm({
+        company_id: p.company_id,
         name: p.name,
+        description: p.description,
         price: p.price,
+        status: p.status,
+        current_inventory: p.current_inventory,
+        category_id: p.category_id,
+        category_name: p.category_name,
         old_price: p.old_price,
         image: p.image,
+        subcategory: p.subcategory,
+        product_type: p.product_type,
+        is_hit: p.is_hit,
         is_discount: p.is_discount,
-        description: p.description,
-        category_id: p.category_id,
+        is_new: p.is_new,
       });
   };
 
@@ -946,6 +982,46 @@ export default function AdminPanelPage() {
                   multiline
                   minRows={3}
                 />
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    label="Компанія ID"
+                    type="number"
+                    value={editForm.company_id ?? ''}
+                    onChange={(e) => handleEditChange('company_id', Number(e.target.value))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Статус"
+                    value={editForm.status ?? ''}
+                    onChange={(e) => handleEditChange('status', e.target.value)}
+                    fullWidth
+                  />
+                </Stack>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    label="Залишок (current_inventory)"
+                    type="number"
+                    value={editForm.current_inventory ?? ''}
+                    onChange={(e) => handleEditChange('current_inventory', Number(e.target.value))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Підкатегорія"
+                    value={editForm.subcategory ?? ''}
+                    onChange={(e) => handleEditChange('subcategory', e.target.value)}
+                    fullWidth
+                  />
+                </Stack>
+
+                <TextField
+                  label="Тип продукту"
+                  value={editForm.product_type ?? ''}
+                  onChange={(e) => handleEditChange('product_type', e.target.value)}
+                  fullWidth
+                />
+
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                   <TextField
                     label="Ціна"
@@ -968,15 +1044,20 @@ export default function AdminPanelPage() {
                   onChange={(e) => handleEditChange('image', e.target.value)}
                   fullWidth
                 />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={Boolean(editForm.is_discount)}
-                      onChange={(e) => handleEditChange('is_discount', e.target.checked)}
-                    />
-                  }
-                  label="Акційний товар"
-                />
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <FormControlLabel
+                    control={<Checkbox checked={Boolean(editForm.is_hit)} onChange={(e) => handleEditChange('is_hit', e.target.checked)} />}
+                    label="Хіт"
+                  />
+                  <FormControlLabel
+                    control={<Checkbox checked={Boolean(editForm.is_discount)} onChange={(e) => handleEditChange('is_discount', e.target.checked)} />}
+                    label="Акційний"
+                  />
+                  <FormControlLabel
+                    control={<Checkbox checked={Boolean(editForm.is_new)} onChange={(e) => handleEditChange('is_new', e.target.checked)} />}
+                    label="Новинка"
+                  />
+                </Stack>
               </Stack>
             </DialogContent>
             <DialogActions>

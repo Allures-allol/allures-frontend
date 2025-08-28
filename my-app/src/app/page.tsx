@@ -6,6 +6,7 @@ import Link from "next/link";
 import Partners from "../components/partners/partners";
 type Product = {
   id: number;
+  company_id?: number;
   name: string;
   description: string;
   price: number;
@@ -23,6 +24,14 @@ type Product = {
   subcategory: string;
   product_type: string;
 };
+const popularCategories = [
+  { label: "Одяг та взуття", image: "/cross.png", gridColumn: "1 / span 2", gridRow: "1" },
+  { label: "Електроніка", image: "/phone.png", gridColumn: "3", gridRow: "1" },
+  { label: "Спорт", image: "/bottle.png", gridColumn: "4", gridRow: "1" },
+  { label: "Іграшки", image: "/bear.png", gridColumn: "1", gridRow: "2" },
+  { label: "Краса", image: "/cream.png", gridColumn: "2", gridRow: "2" },
+  { label: "Меблі", image: "/sofa.png", gridColumn: "3 / span 2", gridRow: "2" },
+] as const;
 
 const fmtUA = (n: unknown) => {
   const num = typeof n === 'string' ? Number(n) : (n as number);
@@ -79,52 +88,41 @@ const catBtnActive: React.CSSProperties = {
 
 async function getProducts(): Promise<Product[]> {
   try {
-    const url = new URL("https://api.alluresallol.com/product/products/");
-    url.searchParams.set("offset", "0");
-    url.searchParams.set("limit", "20");
-    url.searchParams.set("sort", "-id");
-
-    const res = await fetch(url.toString(), {
-      cache: "no-store",
-      headers: { accept: "application/json" },
-      redirect: "follow",
+    const res = await fetch('https://api.alluresallol.com/product/all', {
+      method: 'GET',
+      cache: 'no-store',
       // @ts-ignore
       next: { revalidate: 0 },
     });
 
-    const raw = await res.text();
-
     if (!res.ok) {
-      console.error("API error:", res.status, res.statusText, raw.slice(0, 200));
+      const raw = await res.text().catch(() => '');
+      console.error('API /product/all error:', res.status, res.statusText, raw.slice(0, 200));
       return [];
     }
 
-    let data: any = null;
-    try {
-      data = JSON.parse(raw);
-    } catch (e) {
-      console.error("Ответ не JSON. Первые 200 символов:", raw.slice(0, 200));
-      return [];
-    }
-
-    const list = Array.isArray(data)
+    const data = await res.json();
+    const list: any[] = Array.isArray(data)
       ? data
-      : Array.isArray(data?.results)
-      ? data.results
-      : Array.isArray(data?.items)
-      ? data.items
+      : Array.isArray((data as any)?.items)
+      ? (data as any).items
+      : Array.isArray((data as any)?.results)
+      ? (data as any).results
       : [];
 
     if (!Array.isArray(list)) return [];
 
-    // Нормализация, чтобы исключить undefined и строки
-    const mapped: Product[] = list.map((p: any) => ({
+    // Берём только товары с картинкой, чтобы карточки выглядели корректно
+    const withImage = list.filter((p: any) => p?.image && String(p.image).trim() !== '');
+
+    const mapped: Product[] = withImage.map((p: any) => ({
       id: Number(p.id ?? 0),
+      company_id: typeof p.company_id === 'number' ? p.company_id : undefined,
       name: String(p.name ?? ''),
       description: String(p.description ?? ''),
       price: Number(p.price ?? 0),
       old_price: Number(p.old_price ?? 0),
-      image: typeof p.image === 'string' ? p.image : '',
+      image: String(p.image ?? ''),
       status: String(p.status ?? ''),
       current_inventory: Number(p.current_inventory ?? 0),
       is_hit: Boolean(p.is_hit),
@@ -140,13 +138,14 @@ async function getProducts(): Promise<Product[]> {
 
     return mapped;
   } catch (err) {
-    console.error("Ошибка при загрузке товаров:", err);
+    console.error('Ошибка при загрузке товаров (/product/all):', err);
     return [];
   }
 }
 
 export default async function Home() {
   const products = await getProducts();
+  const productsSafe = Array.isArray(products) ? products : [];
 
   return (
     <>
@@ -195,7 +194,7 @@ export default async function Home() {
             margin: "40px auto 0",
           }}
         >
-          {(Array.isArray(products) ? products : []).slice(0, 4).map((p) => (
+          {productsSafe.slice(0, 4).map((p) => (
             <div
               key={p.id}
               style={{
@@ -292,76 +291,64 @@ export default async function Home() {
             </div>
           </Link>
         </div>
-        {products.length === 0 && (
+        {productsSafe.length === 0 && (
           <p style={{ textAlign: 'center', color: '#888', marginTop: 24 }}>
             Не вдалося завантажити товари. Перевірте API або оновіть сторінку.
           </p>
         )}
       </main>
       {/* Популярні категорії */}
-      {(() => {
-        const popularCategories = [
-          { label: "Одяг та взуття", image: "/cross.png", gridColumn: "1 / span 2", gridRow: "1" },
-          { label: "Електроніка", image: "/phone.png", gridColumn: "3", gridRow: "1" },
-          { label: "Спорт", image: "/bottle.png", gridColumn: "4", gridRow: "1" },
-          { label: "Іграшки", image: "/bear.png", gridColumn: "1", gridRow: "2" },
-          { label: "Краса", image: "/cream.png", gridColumn: "2", gridRow: "2" },
-          { label: "Меблі", image: "/sofa.png", gridColumn: "3 / span 2", gridRow: "2" },
-        ];
-        return (
-          <section style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}>
-            <h2 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "16px" }}>
-              Популярні категорії
-            </h2>
+      <section style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}>
+        <h2 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "16px" }}>
+          Популярні категорії
+        </h2>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "2fr 1fr 1fr 1fr",
+            gridTemplateRows: "150px 150px",
+            gap: "10px",
+          }}
+        >
+          {popularCategories.map((cat, idx) => (
             <div
+              key={idx}
               style={{
-                display: "grid",
-                gridTemplateColumns: "2fr 1fr 1fr 1fr",
-                gridTemplateRows: "150px 150px",
-                gap: "10px",
+                gridColumn: cat.gridColumn,
+                gridRow: cat.gridRow,
+                height: "150px",
+                position: "relative",
+                overflow: "hidden",
+                borderRadius: "12px",
+                background: "#f5f5f5",
               }}
             >
-              {popularCategories.map((cat, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    gridColumn: cat.gridColumn,
-                    gridRow: cat.gridRow,
-                    height: "150px",
-                    position: "relative",
-                    overflow: "hidden",
-                    borderRadius: "12px",
-                    background: "#f5f5f5",
-                  }}
-                >
-                  <img
-                    src={cat.image}
-                    alt={cat.label}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "12px",
-                      left: "12px",
-                      color: "#000",
-                      fontSize: "16px",
-                      fontWeight: 500,
-                      background: "transparent",
-                    }}
-                  >
-                    {cat.label}
-                  </span>
-                </div>
-              ))}
+              <img
+                src={cat.image}
+                alt={cat.label}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+              <span
+                style={{
+                  position: "absolute",
+                  top: "12px",
+                  left: "12px",
+                  color: "#000",
+                  fontSize: "16px",
+                  fontWeight: 500,
+                  background: "transparent",
+                }}
+              >
+                {cat.label}
+              </span>
             </div>
-          </section>
-        );
-      })()}
+          ))}
+        </div>
+      </section>
       <Partners />
       <Footer />
       

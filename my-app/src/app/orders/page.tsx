@@ -1,5 +1,9 @@
 'use client';
-
+import FormControl from '@mui/material/FormControl';
+import FormLabel from '@mui/material/FormLabel';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Radio from '@mui/material/Radio';
 import * as React from 'react';
 import Header from '@/components/headers/header';
 import Footer from '@/components/footers/footer';
@@ -23,6 +27,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import { useRouter } from 'next/navigation';
+
+const CART_KEY = 'allures_cart_v1';
+const LEGACY_CART_KEY = 'cart_items';
 
 /**
  * NOTE: для прямых запросов к API Новой Почты на клиенте нужен ключ,
@@ -46,17 +54,57 @@ export type CartItem = {
 type CityOpt = { ref: string; name: string };
 type WhOpt = { ref: string; address: string; category?: string };
 
+// ---------- Тип заказа и история ----------
+type Order = {
+  orderId: string;
+  userId: string; // если нет auth — используем email/телефон/anon
+  productId: string;
+  quantity: number;
+  totalPrice: number;
+  companyId: string; // если нет — c-unknown
+  deliveryAddress: string;
+  status: 'pending' | 'approved' | 'shipped' | 'delivered' | 'canceled' | string;
+  isPaid: boolean;
+};
+
+function saveOrdersHistory(newOrders: Order[]) {
+  try {
+    const key = 'orders_history_v1';
+    const raw = window.localStorage.getItem(key);
+    let list: Order[] = [];
+    try { list = raw ? JSON.parse(raw) : []; } catch { list = []; }
+    if (!Array.isArray(list)) list = [] as Order[];
+    list = [...newOrders, ...list].slice(0, 100);
+    window.localStorage.setItem(key, JSON.stringify(list));
+    if (process.env.NODE_ENV !== 'production') {
+      try { console.groupCollapsed('[orders_history_v1] saved', list.length); console.table(list); console.groupEnd(); } catch {}
+    }
+  } catch {}
+}
+
 // ---------- Утилиты корзины (localStorage) ----------
 function readCart(): CartItem[] {
   try {
-    const raw = localStorage.getItem('cart_items');
-    return raw ? (JSON.parse(raw) as CartItem[]) : [];
+    const rawPrimary = localStorage.getItem(CART_KEY);
+    if (rawPrimary) return JSON.parse(rawPrimary) as CartItem[];
+
+    // миграция со старого ключа
+    const rawLegacy = localStorage.getItem(LEGACY_CART_KEY);
+    const legacy = rawLegacy ? (JSON.parse(rawLegacy) as CartItem[]) : [];
+    if (legacy.length) {
+      localStorage.setItem(CART_KEY, JSON.stringify(legacy));
+    }
+    return legacy;
   } catch {
     return [];
   }
 }
 function writeCart(items: CartItem[]) {
-  localStorage.setItem('cart_items', JSON.stringify(items));
+  localStorage.setItem(CART_KEY, JSON.stringify(items));
+  // зеркалим в старый ключ для обратной совместимости (можно удалить позже)
+  localStorage.setItem(LEGACY_CART_KEY, JSON.stringify(items));
+  // уведомим другие вкладки/страницы
+  window.dispatchEvent(new Event('cart:changed'));
 }
 
 // ---------- Запросы к НП ----------
@@ -73,9 +121,24 @@ async function npCall<T = any>(modelName: string, calledMethod: string, methodPr
 }
 
 export default function OrdersPage() {
+  const router = useRouter();
   // корзина
   const [items, setItems] = React.useState<CartItem[]>([]);
-  React.useEffect(() => { setItems(readCart()); }, []);
+  React.useEffect(() => {
+    setItems(readCart());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === CART_KEY || e.key === LEGACY_CART_KEY) {
+        setItems(readCart());
+      }
+    };
+    const onCustom = () => setItems(readCart());
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('cart:changed', onCustom as EventListener);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('cart:changed', onCustom as EventListener);
+    };
+  }, []);
   const total = React.useMemo(() => items.reduce((s, it) => s + it.price * it.qty, 0), [items]);
 
   const inc = (id: CartItem['id']) => setItems(prev => { const next = prev.map(it => String(it.id)===String(id)?{...it, qty: it.qty+1}:it); writeCart(next); return next; });
@@ -105,6 +168,8 @@ export default function OrdersPage() {
   const [selectedWh, setSelectedWh] = React.useState<WhOpt | null>(null);
 
   const [address, setAddress] = React.useState(''); // курьерская
+  // оплата: по умолчанию наложений платіж
+  const [paymentMethod, setPaymentMethod] = React.useState<'cod'>('cod');
 
   const loadInitialCities = React.useCallback(async () => {
     if (cityOptions.length > 0) return;
@@ -161,22 +226,64 @@ export default function OrdersPage() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      customer: { firstName, lastName, email, birthDate, phone },
-      delivery: {
-        provider: 'Nova Poshta',
-        city: selectedCity?.name || '',
-        cityRef: selectedCity?.ref || '',
-        warehouse: selectedWh?.address || '',
-        warehouseRef: selectedWh?.ref || '',
-        type: whType,
-        courierAddress: address,
-      },
-      items,
-      total,
+
+    // Сначала собираем полезные данные для заказа
+    const customer = { firstName, lastName, email, birthDate, phone };
+    const delivery = {
+      provider: 'Nova Poshta',
+      city: selectedCity?.name || '',
+      cityRef: selectedCity?.ref || '',
+      warehouse: selectedWh?.address || '',
+      warehouseRef: selectedWh?.ref || '',
+      type: whType,
+      courierAddress: address,
     };
-    console.log('ORDER', payload);
-    alert('Демо: заказ подготовлен, см. консоль.');
+
+    // Сохраним адрес доставки как снапшот (пригодится на /succes)
+    try { window.localStorage.setItem('checkout_delivery_address', delivery.courierAddress || delivery.warehouse || ''); } catch {}
+
+    const payload = { customer, delivery, items, total, paymentMethod };
+    try { window.localStorage.setItem('checkout_payment_method', paymentMethod); } catch {}
+
+    // Генерируем номер заказа (если нет предыдущего)
+    let orderId = '';
+    try {
+      const last = window.localStorage.getItem('last_order_id');
+      orderId = last || String(Math.floor(10000000 + Math.random() * 90000000));
+      window.localStorage.setItem('last_order_id', orderId);
+    } catch {
+      orderId = String(Math.floor(10000000 + Math.random() * 90000000));
+    }
+
+    // userId — пробуем взять из email/телефона, иначе anon
+    const userId = (email && email.trim()) || (phone && phone.trim()) || 'u-anon';
+
+    // companyId — если нет бековых данных, оставляем плейсхолдер
+    const companyId = 'c-unknown';
+
+    // Человечный адрес для записи в историю
+    const deliveryAddress = delivery.type === 'branch' || delivery.type === 'postomat'
+      ? `${delivery.city}${delivery.warehouse ? ', ' + delivery.warehouse : ''}`
+      : (delivery.courierAddress || delivery.city);
+
+    // Превращаем каждую позицию корзины в запись заказа (pending, isPaid: false)
+    const derivedOrders: Order[] = items.map((it, idx) => ({
+      orderId: orderId + (items.length > 1 ? `-${idx + 1}` : ''),
+      userId: String(userId),
+      productId: String(it.id),
+      quantity: Math.max(1, Number(it.qty || 1)),
+      totalPrice: Number(it.price || 0) * Math.max(1, Number(it.qty || 1)),
+      companyId,
+      deliveryAddress,
+      status: 'pending',
+      isPaid: false,
+    }));
+
+    // Пишем историю в localStorage
+    saveOrdersHistory(derivedOrders);
+
+    // Переходим на страницу успеха
+    router.push(`/succes?order=${encodeURIComponent(orderId)}`);
   };
 
   return (
@@ -298,6 +405,23 @@ export default function OrdersPage() {
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                       />
+                    </Grid2>
+
+                    <Grid2 xs={12}>
+                      <FormControl>
+                        <FormLabel>Оплата</FormLabel>
+                        <RadioGroup
+                          name="payment"
+                          value={paymentMethod}
+                          onChange={(e) => setPaymentMethod(e.target.value as 'cod')}
+                        >
+                          <FormControlLabel
+                            value="cod"
+                            control={<Radio />}
+                            label="Накладений платіж (оплата при отриманні)"
+                          />
+                        </RadioGroup>
+                      </FormControl>
                     </Grid2>
                   </Grid2>
                 )}
