@@ -7,7 +7,7 @@ WORKDIR /usr/src/app
 # копируем package.json из my-app
 COPY my-app/package*.json ./
 
-RUN npm install --production --silent && mv node_modules ../
+RUN npm install --production --silent
 
 # копируем всё приложение
 COPY my-app/. .
