@@ -5,10 +5,31 @@ import styles from './auth.module.css';
 import type { UserOut} from '../../types/User';
 import Image from 'next/image';
 
+const AUTH_BASE = 'https://api.alluresallol.com/auth';
+
+async function smartAuthFetch(path: string, body: any): Promise<Response> {
+  // 1) пробуем локальный прокси (если есть route handlers /api/auth/* — не будет CORS)
+  try {
+    const local = await fetch(`/api/auth${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+    // если роута нет — 404, пробуем напрямую
+    if (local.status !== 404) return local;
+  } catch {}
+  // 2) прямой запрос на бек
+  return fetch(`${AUTH_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 interface FastAPIError {
-  loc?: (string | number)[];
-  msg: string;
-  type?: string;
+loc?: (string | number)[];
+msg: string;
+type?: string;
 }
 
 export default function AuthPage() {
@@ -125,62 +146,64 @@ export default function AuthPage() {
       return;
     }
 
+    // Бэк ожидает email+password. Поле "login" используем как email.
+    const path = activeTab === 'register' ? '/register' : '/login';
+    const payload = { email: login, password };
+
+    let res: Response;
     try {
-      // Используем корректные эндпоинты FastAPI: /auth/login и /auth/register
-      const endpoint = `https://api.alluresallol.com/auth/${activeTab}`;
-      const payload = { login, password };
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        // Показываем подробную ошибку от сервера
-        const errorMessage = Array.isArray(data?.detail)
-          ? (data.detail as FastAPIError[]).map(err => err.msg).join('; ')
-          : typeof data?.detail === 'string'
-            ? data.detail
-            : data?.msg || 'Сталася помилка. Спробуйте ще раз.';
-        setError(errorMessage);
-        return;
-      }
-
-      if (activeTab === 'login') {
-        if (data.access_token) {
-          localStorage.setItem('token', data.access_token);
-        }
-        setUser({
-          id: data.id || 0,
-          login: data.login,
-          role: data.role,
-          registered_at: data.registered_at,
-          is_blocked: data.is_blocked ?? false
-        });
-      } else {
-        setUser({
-          id: data.id,
-          login: data.login,
-          role: data.role,
-          registered_at: data.registered_at,
-          is_blocked: data.is_blocked
-        });
-      }
-
-      setLogin('');
-      setPassword('');
-      router.push('/');
-    } catch (err: unknown) {
-      console.error('Помилка при запиті:', err);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Невідома помилка');
-      }
+      res = await smartAuthFetch(path, payload);
+    } catch (e) {
+      // Сетевая ошибка (CORS/офлайн)
+      setError('Не вдалось зʼєднатися із сервером. Перевірте інтернет або дозвіл CORS.');
+      return;
     }
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      // Показываем подробную ошибку от сервера
+      const errorMessage = Array.isArray(data?.detail)
+        ? (data.detail as FastAPIError[]).map(err => err.msg).join('; ')
+        : typeof data?.detail === 'string'
+          ? data.detail
+          : data?.msg || 'Сталася помилка. Спробуйте ще раз.';
+
+      setError(errorMessage || 'Помилка авторизації');
+      return;
+    }
+
+    if (activeTab === 'login') {
+      if (data.access_token) {
+        localStorage.setItem('allures_jwt', data.access_token);
+      }
+      setUser({
+        id: data.id || 0,
+        login: data.login,
+        role: data.role,
+        registered_at: data.registered_at,
+        is_blocked: data.is_blocked ?? false
+      });
+    } else {
+      // надішлемо код підтвердження (мʼяко, без зупинки флоу)
+      try { await smartAuthFetch('/verify/request', { email: login }); } catch {}
+
+      setUser({
+        id: data.id,
+        login: data.login,
+        role: data.role,
+        registered_at: data.registered_at,
+        is_blocked: data.is_blocked
+      });
+    }
+
+    setLogin('');
+    setPassword('');
+    if (activeTab === 'register') {
+      setActiveTab('login');
+      return;
+    }
+    router.push('/');
   }
 
   return (
