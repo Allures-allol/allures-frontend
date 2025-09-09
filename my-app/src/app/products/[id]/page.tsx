@@ -40,6 +40,26 @@ type Review = {
   created_at: string;
 };
 
+// Helpers for pretty reviews rendering
+function starsFromScores(pos: number, neg: number): number {
+  // map pos_score (0..1) to 1..5 stars (nearest 0.5)
+  const raw = Math.max(0, Math.min(1, Number(pos) || 0));
+  const stars = 1 + raw * 4; // 1..5
+  return Math.round(stars * 2) / 2; // step 0.5
+}
+function renderStars(stars: number): string {
+  const full = Math.floor(stars);
+  const half = stars - full >= 0.5 ? 1 : 0;
+  const empty = 5 - full - half;
+  return '★'.repeat(full) + (half ? '⯪' : '') + '☆'.repeat(empty); // ⯪ ~ half-star placeholder
+}
+function sentimentBadgeColor(sent: string): { bg: string; color: string; border: string } {
+  const s = (sent || '').toLowerCase();
+  if (s === 'positive') return { bg: '#DCFCE7', color: '#166534', border: '#86EFAC' };
+  if (s === 'negative') return { bg: '#FEE2E2', color: '#991B1B', border: '#FCA5A5' };
+  return { bg: '#E5E7EB', color: '#374151', border: '#D1D5DB' };
+}
+
 async function getReviews(productId: string): Promise<Review[]> {
   try {
     const res = await fetch(`https://api.alluresallol.com/review/product/${productId}`, { cache: 'no-store' });
@@ -64,7 +84,8 @@ async function getReviews(productId: string): Promise<Review[]> {
         neg_score: Number(r?.neg_score ?? 0),
         created_at: String(r?.created_at ?? ''),
       }))
-      .filter((r) => Number.isFinite(r.id));
+      .filter((r) => Number.isFinite(r.id))
+      .sort((a, b) => (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0));
   } catch (e) {
     console.error('Ошибка загрузки отзывов:', e);
     return [];
@@ -534,43 +555,138 @@ export default function ProductDetailPage() {
 
         {/* Reviews */}
         <section id="reviews" style={{ marginTop: 40, marginBottom: 40, scrollMarginTop: 96 }}>
-          <h2>Відгуки</h2>
+          <h2 style={{ marginBottom: 8 }}>Відгуки</h2>
 
           {reviewsLoading && (
             <div style={{ padding: '12px 0', color: '#6b7280' }}>Завантаження відгуків…</div>
           )}
 
           {!reviewsLoading && reviews.length === 0 && (
-            <div style={{ padding: '12px 0', color: '#6b7280' }}>Поки що немає відгуків</div>
+            <div
+              style={{
+                padding: 16,
+                border: '1px dashed #CBD5E1',
+                borderRadius: 12,
+                background: '#F8FAFC',
+                color: '#64748B',
+              }}
+            >
+              Поки що немає відгуків
+            </div>
           )}
 
           {!reviewsLoading && reviews.length > 0 && (
-            <div style={{ display: 'grid', gap: 12 }}>
-              {reviews.map((r) => {
-                const badgeColor = r.sentiment === 'positive' ? '#22c55e' : r.sentiment === 'negative' ? '#ef4444' : '#6b7280';
-                const created = r.created_at ? new Date(r.created_at).toLocaleString('uk-UA') : '';
-                return (
-                  <article key={r.id} style={{
-                    border: '1px solid #E5E7EB',
-                    borderRadius: 8,
-                    padding: 12,
-                    background: '#fff',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontWeight: 600 }}>Користувач #{r.user_id}</span>
-                      {created && <span style={{ color: '#6b7280', fontSize: 12 }}>{created}</span>}
-                      <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, color: badgeColor, border: `1px solid ${badgeColor}`, borderRadius: 999, padding: '2px 8px' }}>
-                        {r.sentiment}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, lineHeight: 1.6 }}>{r.text}</p>
-                    <div style={{ marginTop: 8, color: '#6b7280', fontSize: 12 }}>
-                      Позитив: {r.pos_score.toFixed(2)} • Негатив: {r.neg_score.toFixed(2)}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+            <>
+              {/* summary bar */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: 12,
+                  border: '1px solid #E5E7EB',
+                  borderRadius: 12,
+                  background: '#FFFFFF',
+                  marginBottom: 12,
+                }}
+              >
+                {(() => {
+                  const avg = Math.round(
+                    (reviews.reduce((acc, r) => acc + starsFromScores(r.pos_score, r.neg_score), 0) / reviews.length) * 10
+                  ) / 10;
+                  const pos = reviews.filter((r) => (r.sentiment || '').toLowerCase() === 'positive').length;
+                  const neu = reviews.filter((r) => (r.sentiment || '').toLowerCase() === 'neutral').length;
+                  const neg = reviews.filter((r) => (r.sentiment || '').toLowerCase() === 'negative').length;
+                  return (
+                    <>
+                      <div style={{ fontSize: 18, fontWeight: 700 }}>{renderStars(avg)}</div>
+                      <div style={{ color: '#6b7280', fontSize: 14 }}>Середня оцінка</div>
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}>
+                          Позитивні: {pos}
+                        </span>
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: '#E5E7EB', color: '#374151', border: '1px solid #D1D5DB' }}>
+                          Нейтральні: {neu}
+                        </span>
+                        <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5' }}>
+                          Негативні: {neg}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* reviews list */}
+              <div style={{ display: 'grid', gap: 12 }}>
+                {reviews.map((r) => {
+                  const stars = starsFromScores(r.pos_score, r.neg_score);
+                  const badge = sentimentBadgeColor(r.sentiment);
+                  const created = r.created_at ? new Date(r.created_at).toLocaleString('uk-UA') : '';
+                  return (
+                    <article
+                      key={r.id}
+                      style={{
+                        border: '1px solid #E5E7EB',
+                        borderRadius: 12,
+                        padding: 16,
+                        background: '#fff',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                        {/* avatar */}
+                        <div
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            background: '#E5E7EB',
+                            display: 'grid',
+                            placeItems: 'center',
+                            fontWeight: 700,
+                            color: '#374151',
+                            flex: '0 0 auto',
+                          }}
+                          aria-hidden
+                        >
+                          {String(r.user_id || '?').slice(0, 2)}
+                        </div>
+
+                        {/* main */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                            <span style={{ fontWeight: 600 }}>Користувач #{r.user_id}</span>
+                            {created && <span style={{ color: '#6b7280', fontSize: 12 }}>{created}</span>}
+                            <span
+                              style={{
+                                marginLeft: 'auto',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: badge.color,
+                                background: badge.bg,
+                                border: `1px solid ${badge.border}`,
+                                borderRadius: 999,
+                                padding: '2px 8px',
+                              }}
+                            >
+                              {r.sentiment}
+                            </span>
+                          </div>
+                          {/* stars */}
+                          <div style={{ color: '#F59E0B', marginTop: 4, fontSize: 16 }}>{renderStars(stars)}</div>
+                          {/* text */}
+                          <p style={{ margin: '8px 0 0', lineHeight: 1.6, color: '#111827' }}>{r.text}</p>
+                          {/* scores */}
+                          <div style={{ marginTop: 8, color: '#6b7280', fontSize: 12 }}>
+                            Позитив: {r.pos_score.toFixed(2)} • Негатив: {r.neg_score.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
           )}
         </section>
       </main>

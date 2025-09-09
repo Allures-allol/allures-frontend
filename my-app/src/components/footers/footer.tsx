@@ -52,15 +52,15 @@ export default function Footer() {
 
       <div className={styles.footerApps}>
         <img src="/qrcode.png" alt="QR Code" />
-        <img src="/appstore-badge.png" alt="Download on the App Store" />
-        <img src="/googleplay-badge.png" alt="Get it on Google Play" />
+        <img src="/appStore.png" alt="Download on the App Store" />
+        <img src="/googlePlay.png" alt="Get it on Google Play" />
       </div>
 
       <div className={styles.footerSocial}>
         <img src="/facebook.png" alt="Facebook" />
-        <img src="/icons/instagram.svg" alt="Instagram" />
-        <img src="/icons/tiktok.svg" alt="TikTok" />
-        <img src="/icons/youtube.svg" alt="YouTube" />
+        <img src="/instagram.png" alt="Instagram" />
+        <img src="/tikTok.png" alt="TikTok" />
+        <img src="/youTube.png" alt="YouTube" />
       </div>
 
       <div className={styles.footerPayments}>

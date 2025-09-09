@@ -28,6 +28,59 @@ export type Product = {
   category_id?: number | null;
 };
 
+// Robust product search that works through local proxies first and then falls back to public API.
+async function searchProducts(query: string, signal?: AbortSignal): Promise<Product[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  const endpoints = [
+    `/api/search?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
+    `/api/products?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
+    `/api/product/products?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
+    // direct backend as a fallback (may be blocked by CORS in browser, but OK if rewrites exist)
+    `https://api.alluresallol.com/product/products/?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
+    // full-dump fallbacks (filter on client)
+    `/api/products-all`,
+    `https://api.alluresallol.com/product/all`,
+  ];
+
+  const mapList = (data: any): any[] => {
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.results)) return data.results;
+    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data)) return data;
+    return [];
+  };
+
+  const mapProduct = (it: any): Product => ({
+    id: it?.id ?? it?.product_id ?? (it?.slug ? String(it.slug) : ''),
+    name: it?.name ?? it?.title ?? '',
+    image: it?.image ?? (Array.isArray(it?.images) ? it.images[0] : null) ?? null,
+    price: typeof it?.price === 'number' ? it.price : (it?.price ? Number(it.price) : null),
+    category_id: it?.category_id ?? null,
+  });
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, { signal, cache: 'no-store', headers: { accept: 'application/json' } });
+      if (!res.ok) continue;
+      const json = await res.json();
+      let list = mapList(json).map(mapProduct);
+
+      // If endpoint doesn't support q (e.g., /product/all), filter on client
+      if (/product\/all$/.test(url) || /products-all$/.test(url)) {
+        const needle = q.toLowerCase();
+        list = list.filter((p) => (p.name || '').toLowerCase().includes(needle)).slice(0, 10);
+      }
+
+      if (list.length) return list;
+    } catch {
+      // try next candidate
+    }
+  }
+  return [];
+}
+
 // Helper to fetch **all** categories with robust fallbacks (no assumptions about shape)
 async function fetchAllCategories(): Promise<Category[]> {
   const candidates = [
@@ -263,26 +316,13 @@ export default function Header() {
   useEffect(() => {
     const q = inputValue.trim();
     if (q.length < 3) { setOptions([]); return; }
+
     const controller = new AbortController();
-    const t = setTimeout(async () => {
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        const res = await fetch(
-          `https://api.alluresallol.com/product/products/?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
-          { signal: controller.signal, cache: 'no-store', headers: { accept: 'application/json' } }
-        );
-        const data = await res.json();
-        const raw = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-        const mapped: Product[] = raw
-          .map((it: any) => ({
-            id: it?.id ?? it?.product_id ?? (it?.slug ? String(it.slug) : ''),
-            name: it?.name ?? '',
-            image: it?.image ?? (Array.isArray(it?.images) ? it.images[0] : null) ?? null,
-            price: typeof it?.price === 'number' ? it.price : it?.price ? Number(it.price) : null,
-            category_id: it?.category_id ?? null,
-          }))
-          .filter((p: { name: any; }) => p && p.name);
-        setOptions(mapped);
+        const list = await searchProducts(q, controller.signal);
+        setOptions(list);
       } catch (e: any) {
         if (e?.name !== 'AbortError') console.error('MUI search fetch error:', e);
         setOptions([]);
@@ -290,7 +330,8 @@ export default function Header() {
         setLoading(false);
       }
     }, 250);
-    return () => { controller.abort(); clearTimeout(t); };
+
+    return () => { controller.abort(); window.clearTimeout(timer); };
   }, [inputValue]);
 
   return (
@@ -330,6 +371,8 @@ export default function Header() {
               onInputChange={(_, v) => setInputValue(v)}
               getOptionLabel={(opt: any) => (typeof opt === 'string' ? opt : opt?.name ?? '')}
               filterOptions={(x) => x}
+              isOptionEqualToValue={(o, v) => String(o?.id) === String((v as any)?.id)}
+              noOptionsText="Не знайдено"
               onChange={(_, value: any) => {
                 if (value && value.id != null) {
                   router.push(`/products/${value.id}`);

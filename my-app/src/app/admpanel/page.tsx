@@ -94,6 +94,18 @@ export type ReviewRow = {
   created_at?: string;
 };
 
+// Reviews returned by /review/product/:id
+export type ProductReview = {
+  id: number | string;
+  product_id: number | string;
+  user_id: number | string;
+  text: string;
+  sentiment: 'positive' | 'neutral' | 'negative' | (string & {});
+  pos_score: number;
+  neg_score: number;
+  created_at?: string;
+};
+
 export type CategoryOption = { id: number | string; name: string };
 export type CategoryRow = {
   id: string | number;
@@ -308,11 +320,22 @@ const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_BASE || '';
 
 async function fetchUsers(role?: Role): Promise<UserRow[]> {
   try {
-    const res = await fetch(`/api/admin/users?all=1&limit=200`, {
+    const params = new URLSearchParams({ limit: '100', offset: '0' });
+    if (role && role !== 'all') params.set('role', String(role));
+
+    // Call our server proxy. The server route should read ADMIN_JWT (not NEXT_PUBLIC_*)
+    // and forward the request to the upstream with Authorization header.
+    const res = await fetch(`/api/admin/users?${params.toString()}`, {
       cache: 'no-store',
       headers: { accept: 'application/json' },
     });
-    if (!res.ok) throw new Error(`Users ${res.status}`);
+
+    if (!res.ok) {
+      let reason = '';
+      try { reason = await res.text(); } catch {}
+      throw new Error(`Users ${res.status}${reason ? `: ${reason.slice(0, 140)}` : ''}`);
+    }
+
     const json = await res.json();
 
     const items: any[] = Array.isArray(json)
@@ -330,10 +353,13 @@ async function fetchUsers(role?: Role): Promise<UserRow[]> {
       : [];
 
     const out: UserRow[] = items.map((u: any, idx: number) => {
-      const fullName = u.full_name || [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
-      const displayName = u.name || fullName || u.username || u.login || u.email || `Користувач ${idx + 1}`;
-      const roleRaw = String(u.role ?? u.user_role ?? '').toLowerCase();
-      const mappedRole: Role = (roleRaw as Role) || 'user';
+      const fullName =
+        u.full_name ||
+        [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+      const displayName =
+        u.name || fullName || u.username || u.login || u.email || `Користувач ${idx + 1}`;
+      const roleRaw = String(u.role ?? u.user_role ?? '').toLowerCase() as Role;
+
       return {
         id: u.id ?? u.user_id ?? idx,
         login: u.login ?? u.username ?? '',
@@ -343,19 +369,23 @@ async function fetchUsers(role?: Role): Promise<UserRow[]> {
         phone: u.phone ?? u.phone_number ?? '',
         avatar_url: u.avatar_url ?? u.avatar ?? '',
         language: u.language ?? u.lang ?? 'uk',
-        bonus_balance: typeof u.bonus_balance === 'number' ? u.bonus_balance : Number(u.bonus_balance ?? 0) || 0,
+        bonus_balance:
+          typeof u.bonus_balance === 'number'
+            ? u.bonus_balance
+            : Number(u.bonus_balance ?? 0) || 0,
         delivery_address: u.delivery_address ?? u.address ?? '',
-        registered_at: u.registered_at || u.date_joined || u.created_at || u.createdAt || undefined,
-        role: mappedRole,
+        registered_at:
+          u.registered_at || u.date_joined || u.created_at || u.createdAt || undefined,
+        role: roleRaw || 'user',
         is_blocked: Boolean(u.is_blocked ?? u.blocked ?? false),
         created_at: u.created_at || u.createdAt || undefined,
       } as UserRow;
     });
 
-    return role ? out.filter((r) => r.role === role) : out;
+    return role && role !== 'all' ? out.filter((r) => String(r.role) === String(role)) : out;
   } catch (e) {
-    console.warn('Users API error, fallback to demo:', e);
-    return demoUsers.filter((u) => !role || u.role === role);
+    console.warn('Users proxy error, fallback to demo:', e);
+    return demoUsers.filter((u) => !role || role === 'all' || String(u.role) === String(role));
   }
 }
 
@@ -433,6 +463,29 @@ async function fetchReviews(): Promise<ReviewRow[]> {
   } catch (e) {
     console.warn('Reviews fallback due to error:', e);
     return demoReviews;
+  }
+}
+
+async function fetchReviewsByProduct(productId: number | string): Promise<ProductReview[]> {
+  try {
+    const url = `https://api.alluresallol.com/review/product/${productId}`;
+    const res = await fetch(url, { cache: 'no-store', headers: { accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Product reviews ${res.status}`);
+    const json = await res.json();
+    const items: any[] = Array.isArray(json) ? json : Array.isArray(json?.items) ? json.items : (json ? [json] : []);
+    return items.map((r: any) => ({
+      id: r.id,
+      product_id: r.product_id ?? productId,
+      user_id: r.user_id ?? '—',
+      text: r.text ?? '',
+      sentiment: r.sentiment ?? 'neutral',
+      pos_score: Number(r.pos_score ?? 0),
+      neg_score: Number(r.neg_score ?? 0),
+      created_at: r.created_at ?? undefined,
+    }));
+  } catch (e) {
+    console.warn('fetchReviewsByProduct error:', e);
+    return [];
   }
 }
 
@@ -719,6 +772,26 @@ export default function AdminPanelPage() {
   const [reviews, setReviews] = React.useState<ReviewRow[]>([]);
   const [reviewsLoading, setReviewsLoading] = React.useState(false);
   const [reviewsOrder, setReviewsOrder] = React.useState<'asc' | 'desc'>('desc');
+
+  // Product → Reviews tab state
+  const [prodReviewsProductId, setProdReviewsProductId] = React.useState<number | string | null>(null);
+  const [prodReviews, setProdReviews] = React.useState<ProductReview[]>([]);
+  const [prodReviewsLoading, setProdReviewsLoading] = React.useState(false);
+  const [prodReviewsErr, setProdReviewsErr] = React.useState<string | null>(null);
+  const openProductReviews = async (id: number | string) => {
+    setProdReviewsErr(null);
+    setProdReviews([]);
+    setProdReviewsProductId(id);
+    try {
+      setProdReviewsLoading(true);
+      const data = await fetchReviewsByProduct(id);
+      setProdReviews(data);
+    } catch (e: any) {
+      setProdReviewsErr(e?.message || 'Не вдалося завантажити відгуки');
+    } finally {
+      setProdReviewsLoading(false);
+    }
+  };
 
   // Old categories list for select in editor
   const [categories, setCategories] = React.useState<CategoryOption[]>([]);
@@ -1149,6 +1222,15 @@ export default function AdminPanelPage() {
           if (alive) setCatsLoading(false);
         }
       }
+      if (tab === 5) {
+        try {
+          setProductsLoading(true);
+          const list = await fetchProducts();
+          setProducts(list);
+        } finally {
+          setProductsLoading(false);
+        }
+      }
     })();
     return () => { alive = false; };
   }, [tab, roleFilter, categories.length, categoriesLoading]);
@@ -1165,7 +1247,110 @@ export default function AdminPanelPage() {
             <Tab label="Товари" />
             <Tab label="Відгуки" />
             <Tab label="Категорії" />
+            <Tab label="Відгуки по товарах" />
           </Tabs>
+            {/* Products → Reviews */}
+            <TabPanel value={tab} index={5}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                {/* Left: products list */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>Товари</Typography>
+                  {productsLoading ? (
+                    <Stack alignItems="center" py={3}><CircularProgress /></Stack>
+                  ) : (
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, maxHeight: 520 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>ID</TableCell>
+                            <TableCell>Зображення</TableCell>
+                            <TableCell>Назва</TableCell>
+                            <TableCell align="right">Ціна</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {productsView.map((p) => (
+                            <TableRow
+                              key={p.id}
+                              hover
+                              onClick={() => openProductReviews(p.id)}
+                              sx={{ cursor: 'pointer' }}
+                              selected={String(prodReviewsProductId) === String(p.id)}
+                            >
+                              <TableCell>{p.id}</TableCell>
+                              <TableCell>
+                                <Box sx={{ width: 56, height: 42 }}>
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={imgSrc(p.image)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                </Box>
+                              </TableCell>
+                              <TableCell>{p.name}</TableCell>
+                              <TableCell align="right">{fmtUA(p.price)} ₴</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Box>
+
+                {/* Right: reviews of selected product */}
+                <Box sx={{ flex: 1.1, minWidth: 0 }}>
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                    Відгуки {prodReviewsProductId ? <>для товару <code>#{String(prodReviewsProductId)}</code></> : null}
+                  </Typography>
+
+                  {!prodReviewsProductId ? (
+                    <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+                      Оберіть товар зліва, щоб переглянути відгуки.
+                    </Paper>
+                  ) : prodReviewsLoading ? (
+                    <Stack alignItems="center" py={3}><CircularProgress /></Stack>
+                  ) : prodReviewsErr ? (
+                    <Alert severity="error">{prodReviewsErr}</Alert>
+                  ) : prodReviews.length === 0 ? (
+                    <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+                      Відгуків поки немає.
+                    </Paper>
+                  ) : (
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, maxHeight: 520 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>ID</TableCell>
+                            <TableCell>Користувач</TableCell>
+                            <TableCell>Текст</TableCell>
+                            <TableCell>Тональність</TableCell>
+                            <TableCell align="right">POS</TableCell>
+                            <TableCell align="right">NEG</TableCell>
+                            <TableCell>Створено</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {prodReviews.map((r) => (
+                            <TableRow key={String(r.id)} hover>
+                              <TableCell>{r.id}</TableCell>
+                              <TableCell>{r.user_id}</TableCell>
+                              <TableCell>{r.text}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  size="small"
+                                  label={r.sentiment}
+                                  color={r.sentiment === 'positive' ? 'success' : r.sentiment === 'neutral' ? 'default' : 'error'}
+                                />
+                              </TableCell>
+                              <TableCell align="right">{(Math.round((Number(r.pos_score) || 0) * 1000) / 10).toFixed(1)}%</TableCell>
+                              <TableCell align="right">{(Math.round((Number(r.neg_score) || 0) * 1000) / 10).toFixed(1)}%</TableCell>
+                              <TableCell>{r.created_at ? new Date(r.created_at).toLocaleString('uk-UA') : '—'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Box>
+              </Stack>
+            </TabPanel>
 
           <Box sx={{ p: 2 }}>
             {/* Users */}

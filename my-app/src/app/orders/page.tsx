@@ -9,7 +9,6 @@ import Header from '@/components/headers/header';
 import Footer from '@/components/footers/footer';
 import Image from 'next/image';
 import Box from '@mui/material/Box';
-import Grid2 from '@mui/material/Unstable_Grid2';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
@@ -292,9 +291,15 @@ export default function OrdersPage() {
       <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2, py: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Оформлення замовлення</Typography>
 
-        <Grid2 container spacing={3}>
-          {/* Левая колонка: формы */}
-          <Grid2 xs={12} md={7}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '7fr 5fr' },
+            gap: 3,
+          }}
+        >
+          {/* Левая колонка: форми */}
+          <Box>
             <Card variant="outlined" sx={{ mb: 2 }}>
               <CardContent>
                 <ToggleButtonGroup
@@ -308,26 +313,38 @@ export default function OrdersPage() {
                 </ToggleButtonGroup>
 
                 {tab === 'personal' ? (
-                  <Grid2 container spacing={2}>
-                    <Grid2 xs={12} sm={6}>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gap: 2,
+                    }}
+                  >
+                    <Box>
                       <TextField fullWidth label="Імʼя" value={firstName} onChange={e=>setFirstName(e.target.value)} />
-                    </Grid2>
-                    <Grid2 xs={12} sm={6}>
+                    </Box>
+                    <Box>
                       <TextField fullWidth label="Прізвище" value={lastName} onChange={e=>setLastName(e.target.value)} />
-                    </Grid2>
-                    <Grid2 xs={12} sm={6}>
+                    </Box>
+                    <Box>
                       <TextField fullWidth type="email" label="E-mail" value={email} onChange={e=>setEmail(e.target.value)} />
-                    </Grid2>
-                    <Grid2 xs={12} sm={6}>
+                    </Box>
+                    <Box>
                       <TextField fullWidth type="date" label="Дата народження" InputLabelProps={{ shrink: true }} value={birthDate} onChange={e=>setBirthDate(e.target.value)} />
-                    </Grid2>
-                    <Grid2 xs={12} sm={6}>
+                    </Box>
+                    <Box>
                       <TextField fullWidth type="tel" label="Телефон" value={phone} onChange={e=>setPhone(e.target.value)} />
-                    </Grid2>
-                  </Grid2>
+                    </Box>
+                  </Box>
                 ) : (
-                  <Grid2 container spacing={2}>
-                    <Grid2 xs={12}>
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr',
+                      gap: 2,
+                    }}
+                  >
+                    <Box>
                       <Autocomplete
                         open={cityOpen}
                         onOpen={() => { setCityOpen(true); loadInitialCities(); }}
@@ -357,9 +374,9 @@ export default function OrdersPage() {
                           />
                         )}
                       />
-                    </Grid2>
+                    </Box>
 
-                    <Grid2 xs={12}>
+                    <Box>
                       <ToggleButtonGroup
                         value={whType}
                         exclusive
@@ -395,9 +412,9 @@ export default function OrdersPage() {
                           />
                         )}
                       />
-                    </Grid2>
+                    </Box>
 
-                    <Grid2 xs={12}>
+                    <Box>
                       <TextField
                         fullWidth
                         label="Адреса курʼєра (за потреби)"
@@ -405,9 +422,9 @@ export default function OrdersPage() {
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                       />
-                    </Grid2>
+                    </Box>
 
-                    <Grid2 xs={12}>
+                    <Box>
                       <FormControl>
                         <FormLabel>Оплата</FormLabel>
                         <RadioGroup
@@ -422,8 +439,8 @@ export default function OrdersPage() {
                           />
                         </RadioGroup>
                       </FormControl>
-                    </Grid2>
-                  </Grid2>
+                    </Box>
+                  </Box>
                 )}
 
                 <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
@@ -431,14 +448,14 @@ export default function OrdersPage() {
                 </Box>
               </CardContent>
             </Card>
-          </Grid2>
+          </Box>
 
           {/* Правая колонка: корзина */}
-          <Grid2 xs={12} md={5}>
+          <Box>
             <Card variant="outlined">
               <CardContent>
                 {items.length === 0 ? (
-                  <Typography color="text.secondary">тут будут ваши товары</Typography>
+                  <Typography color="text.secondary">тут будут ваши товари</Typography>
                 ) : (
                   <>
                     <List disablePadding>
@@ -481,8 +498,8 @@ export default function OrdersPage() {
                 )}
               </CardContent>
             </Card>
-          </Grid2>
-        </Grid2>
+          </Box>
+        </Box>
       </Box>
       <Footer />
     </>

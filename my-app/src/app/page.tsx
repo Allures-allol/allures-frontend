@@ -24,6 +24,11 @@ type Product = {
   subcategory: string;
   product_type: string;
 };
+const containerStyle: React.CSSProperties = {
+  maxWidth: '1200px',
+  margin: '0 auto',
+  padding: '0 16px',
+};
 const popularCategories = [
   { label: "Одяг та взуття", image: "/cross.png", gridColumn: "1 / span 2", gridRow: "1" },
   { label: "Електроніка", image: "/phone.png", gridColumn: "3", gridRow: "1" },
@@ -46,8 +51,8 @@ const imgSrc = (src?: string | null) => {
 };
 
 const catSectionStyle: React.CSSProperties = {
-  maxWidth: '1200px',
-  margin: '24px 0 0 170px',
+  ...containerStyle,
+  margin: '24px auto 0',
 };
 const catTitleStyle: React.CSSProperties = {
   fontSize: 20,
@@ -150,22 +155,24 @@ export default async function Home() {
   return (
     <>
       <Header />
-      <div style={{ display: "flex", gap: "20px", marginTop: "15px", marginLeft: "170px" }}>
-        <div style={{ width: "480px", height: "330px", position: "relative", opacity: 1 }}>
-          <Image
-            src="/baner1.png"
-            alt="Літо в розпалі - знижки до 70%"
-            fill
-            style={{ objectFit: "cover", borderRadius: "16px" }}
-          />
-        </div>
-        <div style={{ width: "480px", height: "330px", position: "relative", opacity: 1 }}>
-          <Image
-            src="/baner2.png"
-            alt="Літо в розпалі - нові колекції"
-            fill
-            style={{ objectFit: "cover", borderRadius: "16px" }}
-          />
+      <div style={{ ...containerStyle, marginTop: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <div style={{ width: "100%", height: 330, position: "relative", opacity: 1 }}>
+            <Image
+              src="/baner1.png"
+              alt="Літо в розпалі - знижки до 70%"
+              fill
+              style={{ objectFit: "cover", borderRadius: 16 }}
+            />
+          </div>
+          <div style={{ width: "100%", height: 330, position: "relative", opacity: 1 }}>
+            <Image
+              src="/baner2.png"
+              alt="Літо в розпалі - нові колекції"
+              fill
+              style={{ objectFit: "cover", borderRadius: 16 }}
+            />
+          </div>
         </div>
       </div>
       {/* Популярні товари */}
@@ -180,125 +187,122 @@ export default async function Home() {
           <button style={catBtnBase}>Меблі</button>
         </div>
       </div>
-      <main style={{ padding: "20px", background: "#fafafa", fontFamily:"sans-serif"}}>
-        <h1 style={{ textAlign: "center", fontSize: 32, fontWeight: 700 }}>
-          Маркетплейс
-        </h1>
+      <main style={{ background: "#fafafa" }}>
+        <div style={{ ...containerStyle, padding: "20px 16px" }}>
+          <h1 style={{ textAlign: "center", fontSize: 32, fontWeight: 700, margin: 0 }}>
+            Маркетплейс
+          </h1>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(5, 256px)",
-            justifyContent: "center",
-            columnGap: "5px",
-            margin: "40px auto 0",
-          }}
-        >
-          {productsSafe.slice(0, 4).map((p) => (
-            <div
-              key={p.id}
-              style={{
-                position: "relative",
-                height: "380px",
-              }}
-            >
-              <button
-                style={{
-                  position: "absolute",
-                  top: "12px",
-                  right: "12px",
-                  background: "transparent",
-                  border: "none",
-                  fontSize: "20px",
-                  cursor: "pointer",
-                  zIndex: 2,
-                }}
-              >
-                ♡
-              </button>
-              <Link href={`/products/${p.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                <div
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gap: 16,
+              alignItems: "stretch",
+              margin: "32px 0 0",
+            }}
+          >
+            {productsSafe.slice(0, 4).map((p) => (
+              <div key={p.id} style={{ position: "relative" }}>
+                <button
                   style={{
-                    background: "#fff",
-                    borderRadius: "8px",
-                    padding: "16px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    height: "380px",
+                    position: "absolute",
+                    top: "12px",
+                    right: "12px",
+                    background: "transparent",
+                    border: "none",
+                    fontSize: "20px",
+                    cursor: "pointer",
+                    zIndex: 2,
                   }}
                 >
-                  <img
-                    src={imgSrc(p.image)}
-                    alt={p.name || 'product'}
-                    loading="lazy"
-                    decoding="async"
-                    style={{ width: "100%", height: "200px", objectFit: "contain" }}
-                  />
+                  ♡
+                </button>
+                <Link href={`/products/${p.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                  <div
+                    style={{
+                      background: "#fff",
+                      borderRadius: 12,
+                      padding: 16,
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+                      display: "flex",
+                      flexDirection: "column",
+                      minHeight: 380,
+                    }}
+                  >
+                    <img
+                      src={imgSrc(p.image)}
+                      alt={p.name || 'product'}
+                      loading="lazy"
+                      decoding="async"
+                      style={{
+                        width: "100%",
+                        height: 200,
+                        objectFit: "contain",
+                        marginBottom: 12,
+                      }}
+                    />
 
-                  <h3 style={{ margin: "12px 0", fontSize: 18 }}>{p.name}</h3>
-                  <p style={{ fontSize: 14, color: "#555" }}>{p.description}</p>
+                    <h3 style={{ margin: "12px 0", fontSize: 18 }}>{p.name}</h3>
+                    <p style={{ fontSize: 14, color: "#555" }}>{p.description}</p>
 
-                  <div style={{ margin: "12px 0" }}>
-                    {p.is_discount && Number(p.old_price) > 0 && (
-                      <span style={{ textDecoration: "line-through", marginRight: 8 }}>
-                        {fmtUA(p.old_price)} ₴
+                    <div style={{ margin: "12px 0" }}>
+                      {p.is_discount && Number(p.old_price) > 0 && (
+                        <span style={{ textDecoration: "line-through", marginRight: 8 }}>
+                          {fmtUA(p.old_price)} ₴
+                        </span>
+                      )}
+                      <span style={{ fontWeight: 700 }}>
+                        {fmtUA(p.price)} ₴
                       </span>
-                    )}
-                    <span style={{ fontWeight: 700 }}>
-                      {fmtUA(p.price)} ₴
-                    </span>
+                    </div>
+                    <button
+                      style={{
+                        marginTop: "auto",
+                        background: "#3b70f6",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "12px 0",
+                        cursor: "pointer",
+                        textAlign: "center",
+                      }}
+                    >
+                      В корзину
+                    </button>
                   </div>
-                </div>
-              </Link>
-              <button
+                </Link>
+              </div>
+            ))}
+            <Link href="/products" key="view-all">
+              <div
                 style={{
-                  position: "absolute",
-                  bottom: "16px",
-                  left: "16px",
-                  right: "16px",
-                  background: "#0070f3",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "12px 0",
+                  background: "#3b70f6",
+                  borderRadius: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   cursor: "pointer",
-                  textAlign: "center",
-                  zIndex: 2,
+                  color: "#fff",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  minHeight: 380,
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
                 }}
               >
-                В корзину
-              </button>
-            </div>
-          ))}
-          <Link href="/products" key="view-all">
-            <div
-              style={{
-                background: "#3b70f6",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: "#fff",
-                fontSize: "18px",
-                fontWeight: 600,
-                height: "380px",
-              }}
-            >
-              Дивитись все →
-            </div>
-          </Link>
+                Дивитись все →
+              </div>
+            </Link>
+          </div>
+          {productsSafe.length === 0 && (
+            <p style={{ textAlign: 'center', color: '#888', marginTop: 24 }}>
+              Не вдалося завантажити товари. Перевірте API або оновіть сторінку.
+            </p>
+          )}
         </div>
-        {productsSafe.length === 0 && (
-          <p style={{ textAlign: 'center', color: '#888', marginTop: 24 }}>
-            Не вдалося завантажити товари. Перевірте API або оновіть сторінку.
-          </p>
-        )}
       </main>
       {/* Популярні категорії */}
-      <section style={{ maxWidth: "1000px", margin: "20px auto", padding: "0 20px" }}>
+      <section style={{ ...containerStyle, margin: "20px auto", padding: "0 16px" }}>
         <h2 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "16px" }}>
           Популярні категорії
         </h2>
@@ -307,7 +311,7 @@ export default async function Home() {
             display: "grid",
             gridTemplateColumns: "2fr 1fr 1fr 1fr",
             gridTemplateRows: "150px 150px",
-            gap: "10px",
+            gap: 12,
           }}
         >
           {popularCategories.map((cat, idx) => (
@@ -316,10 +320,10 @@ export default async function Home() {
               style={{
                 gridColumn: cat.gridColumn,
                 gridRow: cat.gridRow,
-                height: "150px",
+                height: 150,
                 position: "relative",
                 overflow: "hidden",
-                borderRadius: "12px",
+                borderRadius: 16,
                 background: "#f5f5f5",
               }}
             >

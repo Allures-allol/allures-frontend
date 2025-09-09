@@ -5,23 +5,21 @@ import styles from './auth.module.css';
 import type { UserOut} from '../../types/User';
 import Image from 'next/image';
 
+type AuthTab = 'register' | 'login';
+const TAB_REGISTER: AuthTab = 'register';
+const TAB_LOGIN: AuthTab = 'login';
+
 const AUTH_BASE = 'https://api.alluresallol.com/auth';
 
 async function smartAuthFetch(path: string, body: any): Promise<Response> {
-  // 1) пробуем локальный прокси (если есть route handlers /api/auth/* — не будет CORS)
-  try {
-    const local = await fetch(`/api/auth${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify(body),
-    });
-    // если роута нет — 404, пробуем напрямую
-    if (local.status !== 404) return local;
-  } catch {}
-  // 2) прямой запрос на бек
-  return fetch(`${AUTH_BASE}${path}`, {
+  // Прямий запит на бекенд авторизації
+  const url = `${AUTH_BASE}${path}`;
+  return fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      accept: 'application/json',
+    },
     body: JSON.stringify(body),
   });
 }
@@ -34,13 +32,16 @@ type?: string;
 
 export default function AuthPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'register' | 'login'>('login');
+  const [activeTab, setActiveTab] = useState<AuthTab>(TAB_LOGIN);
   const [loading, setLoading] = useState(true);
   const [forgot, setForgot] = useState(false);
   const [error, setError] = useState<string | null>(null); // Новое состояние
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [user, setUser] = useState<UserOut | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const isRegister = activeTab === TAB_REGISTER;
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 3500);
@@ -140,6 +141,7 @@ export default function AuthPage() {
   async function handleAuth(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setError(null);
+    setInfo(null);
 
     if (!login.trim() || !password.trim()) {
       setError("Будь ласка, заповніть всі поля.");
@@ -147,7 +149,7 @@ export default function AuthPage() {
     }
 
     // Бэк ожидает email+password. Поле "login" используем как email.
-    const path = activeTab === 'register' ? '/register' : '/login';
+    const path = isRegister ? '/register' : '/login';
     const payload = { email: login, password };
 
     let res: Response;
@@ -173,7 +175,7 @@ export default function AuthPage() {
       return;
     }
 
-    if (activeTab === 'login') {
+    if (activeTab === TAB_LOGIN) {
       if (data.access_token) {
         localStorage.setItem('allures_jwt', data.access_token);
       }
@@ -185,22 +187,27 @@ export default function AuthPage() {
         is_blocked: data.is_blocked ?? false
       });
     } else {
-      // надішлемо код підтвердження (мʼяко, без зупинки флоу)
+      // /auth/register відповідає як у Swagger:
+      // { message: string, login: string, email_enabled: boolean }
+      const msg: string = data?.message || 'Користувача створено.';
+      const emailEnabled: boolean = Boolean(data?.email_enabled);
+
+      // Мʼяко запитуємо відправку коду підтвердження (не блокує флоу)
       try { await smartAuthFetch('/verify/request', { email: login }); } catch {}
 
-      setUser({
-        id: data.id,
-        login: data.login,
-        role: data.role,
-        registered_at: data.registered_at,
-        is_blocked: data.is_blocked
-      });
+      // Показуємо інформбанер і переводимо на вкладку "Увійти"
+      setInfo(`${msg} ${emailEnabled ? '' : 'Перевірте пошту — очікується підтвердження email.'}`.trim());
+
+      // На реєстрації дані користувача не приходять у повному вигляді — не заповнюємо setUser
+      setPassword('');
+      setActiveTab(TAB_LOGIN);
+      return;
     }
 
     setLogin('');
     setPassword('');
-    if (activeTab === 'register') {
-      setActiveTab('login');
+    if (activeTab === TAB_REGISTER) {
+      setActiveTab(TAB_LOGIN);
       return;
     }
     router.push('/');
@@ -209,6 +216,19 @@ export default function AuthPage() {
   return (
     <div className={styles.root}>
       <div className={styles.card}>
+        {info && (
+          <div style={{
+            background: '#e8f5e9',
+            color: '#1b5e20',
+            border: '1px solid #c8e6c9',
+            borderRadius: 10,
+            padding: '10px 14px',
+            marginBottom: 12,
+            fontSize: 14
+          }}>
+            {info}
+          </div>
+        )}
         {/* Кнопка для теста ошибки
         <button
           className={styles.submitBtn}
@@ -221,15 +241,15 @@ export default function AuthPage() {
           <>
             <div className={styles.tabs}>
               <button
-                className={`${styles.tab} ${activeTab === 'register' ? styles.active : ''}`}
-                onClick={() => setActiveTab('register')}
+                className={`${styles.tab} ${activeTab === TAB_REGISTER ? styles.active : ''}`}
+                onClick={() => setActiveTab(TAB_REGISTER)}
                 type="button"
               >
                 Зареєструватися
               </button>
               <button
-                className={`${styles.tab} ${activeTab === 'login' ? styles.active : ''}`}
-                onClick={() => setActiveTab('login')}
+                className={`${styles.tab} ${activeTab === TAB_LOGIN ? styles.active : ''}`}
+                onClick={() => setActiveTab(TAB_LOGIN)}
                 type="button"
               >
                 Увійти
@@ -237,12 +257,12 @@ export default function AuthPage() {
             </div>
           <form className={styles.form} onSubmit={handleAuth}>
             <h2 className={styles.title}>
-              {activeTab === 'register' ? 'Зареєструватися' : 'Увійти'}
+              {isRegister ? 'Зареєструватися' : 'Увійти'}
             </h2>
             <input
               className={styles.input}
-              type="text"
-              placeholder="Логін"
+              type="email"
+              placeholder="Email"
               value={login}
               onChange={e => setLogin(e.target.value)}
               required
@@ -288,11 +308,11 @@ export default function AuthPage() {
               </a>
             </div>
             <button type="submit" className={styles.submitBtn}>
-              {activeTab === 'register' ? 'Зареєструватися' : 'Увійти'}
+              {isRegister ? 'Зареєструватися' : 'Увійти'}
             </button>
           </form>
           <div className={styles.bottomText}>
-            {activeTab === 'register' ? (
+            {activeTab === TAB_REGISTER ? (
               <>
                 Вже маєте обліковий запис?
                 <a
@@ -300,7 +320,7 @@ export default function AuthPage() {
                   className={styles.registerLink}
                   onClick={e => {
                     e.preventDefault();
-                    setActiveTab('login');
+                    setActiveTab(TAB_LOGIN);
                   }}
                 >
                   Увійти
@@ -314,7 +334,7 @@ export default function AuthPage() {
                   className={styles.registerLink}
                   onClick={e => {
                     e.preventDefault();
-                    setActiveTab('register');
+                    setActiveTab(TAB_REGISTER);
                   }}
                 >
                   Зареєструватися
