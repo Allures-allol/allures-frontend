@@ -1,6 +1,6 @@
 'use client';
 // src/app/products/[category]/page.tsx
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import Header from './../../components/headers/header';
 import Footer from './../../components/footers/footer';
@@ -236,7 +236,7 @@ async function getAllProducts(): Promise<{ products: Product[]; total: number }>
   }
 }
 
-export default function CategoryPage({ params }: any) {
+function CategoryPageInner({ params }: any) {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
   const [ratings, setRatings] = React.useState<Record<number, number>>({});
@@ -660,5 +660,13 @@ export default function CategoryPage({ params }: any) {
 
       <Footer />
     </>
+  );
+}
+
+export default function ProductsPage(props: any) {
+  return (
+    <Suspense fallback={<div style={{ padding: 16 }}>Завантаження…</div>}>
+      <CategoryPageInner {...props} />
+    </Suspense>
   );
 }
