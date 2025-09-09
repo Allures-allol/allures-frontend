@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Header from '@/components/headers/header';
@@ -32,7 +33,7 @@ export type Order = {
   isPaid: boolean;
 };
 
-export default function SuccessPage() {
+function SuccessPageInner() {
   const searchParams = useSearchParams();
 
   const [orders, setOrders] = React.useState<Order[]>([]);
@@ -42,21 +43,31 @@ export default function SuccessPage() {
     || searchParams.get('id')
     || searchParams.get('number');
 
-  const orderNumber = React.useMemo(() => {
-    if (queryOrder && queryOrder.trim()) return queryOrder.trim();
-    if (typeof window !== 'undefined') {
-      const saved = window.localStorage.getItem('last_order_id');
-      if (saved) return saved;
-    }
-    // fallback — сгенерируем 8‑значный номер
-    const rnd = Math.floor(10000000 + Math.random() * 90000000);
-    return String(rnd);
+  const [orderNumber, setOrderNumber] = React.useState<string>('');
+
+  React.useEffect(() => {
+    try {
+      if (queryOrder && queryOrder.trim()) {
+        setOrderNumber(queryOrder.trim());
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        const saved = window.localStorage.getItem('last_order_id');
+        if (saved) {
+          setOrderNumber(saved);
+          return;
+        }
+        // Генерируем номер только на клиенте
+        const rnd = Math.floor(10000000 + Math.random() * 90000000);
+        setOrderNumber(String(rnd));
+      }
+    } catch {}
   }, [queryOrder]);
 
   // Очистим корзину и сохраним номер заказа локально (для повторного рендера, если нужно)
   React.useEffect(() => {
     try {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined' || !orderNumber) return;
 
       // 1) Собираем данные о платеже из query/local
       const payment = {
@@ -182,7 +193,7 @@ export default function SuccessPage() {
           </p>
 
           <div style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>
-            Номер замовлення <span style={{ fontWeight: 600, color: '#111827' }}>{orderNumber}</span>
+            Номер замовлення <span style={{ fontWeight: 600, color: '#111827' }}>{orderNumber || '—'}</span>
           </div>
 
           <div style={{ marginTop: 20 }}>
@@ -207,5 +218,13 @@ export default function SuccessPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 24 }}>Завантаження…</div>}>
+      <SuccessPageInner />
+    </Suspense>
   );
 }
