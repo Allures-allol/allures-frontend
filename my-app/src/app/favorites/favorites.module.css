@@ -1,8 +1,6 @@
-
-
 /* === Wishlist page (scoped via :global because TSX uses raw class names) === */
 
-:global(.wishlist) {
+.wishlist {
   --wl-max: 1280px;
   --wl-gap: 12px;
   --wl-radius: 12px;
@@ -15,26 +13,26 @@
   padding: 16px;
 }
 
-:global(.wishlist__header) {
+.wishlist__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
 
-:global(.wishlist__title) {
+.wishlist__title {
   font-size: 20px;
   font-weight: 700;
   margin: 0;
 }
 
-:global(.wishlist__toolbar) {
+.wishlist__toolbar {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-:global(.wishlist__add) {
+.wishlist__add {
   border: 1px solid var(--wl-border);
   background: var(--wl-bg);
   border-radius: 10px;
@@ -43,27 +41,27 @@
   cursor: pointer;
 }
 
-:global(.wishlist__groups) {
+.wishlist__groups {
   display: grid;
   gap: 14px;
 }
 
 /* === Group card === */
-:global(.wishlist-group) {
+.wishlist-group {
   background: var(--wl-bg);
   border: 1px solid var(--wl-border);
   border-radius: var(--wl-radius);
   padding: 10px;
 }
 
-:global(.wishlist-group__header) {
+.wishlist-group__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
 }
 
-:global(.wishlist-group__title) {
+.wishlist-group__title {
   color: #2563eb;
   background: transparent;
   border: 0;
@@ -73,15 +71,15 @@
   border-radius: 8px;
 }
 
-:global(.wishlist-group__title:hover) { background: #eff6ff; }
+.wishlist-group__title:hover { background: #eff6ff; }
 
-:global(.wishlist-group__actions) {
+.wishlist-group__actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-:global(.wishlist-group__share) {
+.wishlist-group__share {
   border: 1px solid var(--wl-border);
   background: var(--wl-bg);
   border-radius: 10px;
@@ -93,11 +91,11 @@
 }
 
 /* Details dropdown (⋯) */
-:global(.wishlist-group__menu) {
+.wishlist-group__menu {
   position: relative;
 }
 
-:global(.wishlist-group__menu > summary) {
+.wishlist-group__menu > summary {
   list-style: none;
   cursor: pointer;
   border: 1px solid var(--wl-border);
@@ -110,13 +108,13 @@
   justify-content: center;
 }
 
-:global(.wishlist-group__menu > summary::-webkit-details-marker) { display: none; }
+.wishlist-group__menu > summary::-webkit-details-marker { display: none; }
 
-:global(.wishlist-group__menu[open] > .wishlist-group__menu-list) {
+.wishlist-group__menu[open] > .wishlist-group__menu-list {
   display: block;
 }
 
-:global(.wishlist-group__menu-list) {
+.wishlist-group__menu-list {
   display: none;
   position: absolute;
   right: 0;
@@ -130,7 +128,7 @@
   z-index: 20;
 }
 
-:global(.wishlist-group__menu-list > button) {
+.wishlist-group__menu-list > button {
   width: 100%;
   text-align: left;
   background: transparent;
@@ -140,10 +138,10 @@
   cursor: pointer;
 }
 
-:global(.wishlist-group__menu-list > button:hover) { background: #f3f4f6; }
+.wishlist-group__menu-list > button:hover { background: #f3f4f6; }
 
 /* === Horizontal items list === */
-:global(.wishlist-group__list) {
+.wishlist-group__list {
   display: flex;
   gap: var(--wl-gap);
   overflow-x: auto;
@@ -152,9 +150,9 @@
   padding: 8px 4px 4px;
 }
 
-:global(.wishlist-item) { list-style: none; }
+.wishlist-item { list-style: none; }
 
-:global(.wishlist-item__card) {
+.wishlist-item__card {
   position: relative;
   width: 132px;  /* карточка как в макете */
   height: 88px;
@@ -167,7 +165,7 @@
   padding: 6px;
 }
 
-:global(.wishlist-item__remove) {
+.wishlist-item__remove {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -180,7 +178,7 @@
   cursor: pointer;
 }
 
-:global(.wishlist-item__link) {
+.wishlist-item__link {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -189,21 +187,21 @@
   color: inherit;
 }
 
-:global(.wishlist-item__image) {
+.wishlist-item__image {
   width: 120px;
   height: 72px;
   object-fit: contain;           /* аккуратное вписывание */
   image-rendering: -webkit-optimize-contrast; /* Safari */
 }
 
-:global(.wishlist-item__name) {
+.wishlist-item__name {
   display: none; /* как в макете — только картинки; включим позже при необходимости */
   font-size: 12px;
   color: var(--wl-muted);
   text-align: center;
 }
 
-:global(.wishlist-item--empty) {
+.wishlist-item--empty {
   border: 1px dashed var(--wl-border);
   border-radius: 12px;
   color: var(--wl-muted);
@@ -212,7 +210,7 @@
 
 /* Responsive tweaks */
 @media (max-width: 640px) {
-  :global(.wishlist) { padding: 12px; }
-  :global(.wishlist-item__card) { width: 116px; height: 82px; }
-  :global(.wishlist-item__image) { width: 104px; height: 64px; }
+  .wishlist { padding: 12px; }
+  .wishlist-item__card { width: 116px; height: 82px; }
+  .wishlist-item__image { width: 104px; height: 64px; }
 }
