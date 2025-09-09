@@ -4,6 +4,7 @@ import Header from "../components/headers/header";
 import Footer from "../components/footers/footer";
 import Link from "next/link";
 import Partners from "../components/partners/partners";
+export const revalidate = 120; // Enable ISR: re-generate home every 2 minutes
 type Product = {
   id: number;
   company_id?: number;
@@ -95,9 +96,8 @@ async function getProducts(): Promise<Product[]> {
   try {
     const res = await fetch('https://api.alluresallol.com/product/all', {
       method: 'GET',
-      cache: 'no-store',
-      // @ts-ignore
-      next: { revalidate: 0 },
+      // Use ISR so the page can be pre-rendered at build and revalidated later
+      next: { revalidate: 120 },
     });
 
     if (!res.ok) {
