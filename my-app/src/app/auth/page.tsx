@@ -150,7 +150,7 @@ export default function AuthPage() {
 
     // Бэк ожидает email+password. Поле "login" используем как email.
     const path = isRegister ? '/register' : '/login';
-    const payload = { email: login, password };
+    const payload = { login, password };
 
     let res: Response;
     try {
