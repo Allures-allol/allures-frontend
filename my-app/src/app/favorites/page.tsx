@@ -26,14 +26,45 @@ const LS_KEY = 'wishlist:v1';
 const API_ORIGIN = 'https://api.alluresallol.com';
 
 // Normalize image URL (accepts absolute; converts relative backend paths to absolute; falls back to placeholder)
-function imgSrc(u?: string | null): string {
+function imgSrc(input?: any): string {
   try {
-    if (!u) return '/placeholder.png';
-    let s = String(u).trim();
+    // Accept array/object shapes commonly coming from APIs
+    let u = input as any;
+    if (u && typeof u === 'object') {
+      if (Array.isArray(u)) u = u[0];
+      u = (u?.url || u?.src || u?.image || u?.path || '').toString();
+    }
+    if (u == null) return '/placeholder.png';
+
+    let s = String(u).trim().replace(/^"|"$/g, '');
     if (!s) return '/placeholder.png';
-    if (s.startsWith('http://') || s.startsWith('https://')) return s;
-    if (s.startsWith('//')) return 'https:' + s;
-    if (s.startsWith('/')) s = s.slice(1);
+
+    // Decode percent-encoded http(s) URLs if needed
+    try { if (/^https?%3A/i.test(s)) s = decodeURIComponent(s); } catch {}
+
+    // Data/blob URLs pass through
+    if (/^(data:|blob:)/i.test(s)) return s;
+
+    // Protocol-relative
+    if (s.startsWith('//')) s = 'https:' + s;
+
+    // Absolute URLs
+    if (/^https?:\/\//i.test(s)) {
+      try {
+        const url = new URL(s);
+        // Avoid mixed content: upgrade to https for known domains
+        if (url.protocol === 'http:' && /(^|\.)alluresallol\.com$/i.test(url.hostname)) {
+          url.protocol = 'https:';
+          return url.toString();
+        }
+        return url.toString();
+      } catch {
+        // fall through and try to build relative
+      }
+    }
+
+    // Relative paths from backend (e.g., /uploads/..., images/..., storage/...)
+    s = s.replace(/^\/+/, ''); // remove leading slashes
     return `${API_ORIGIN}/${s}`;
   } catch {
     return '/placeholder.png';
@@ -236,6 +267,7 @@ export default function FavoritesPage() {
                               width={96}
                               height={96}
                               unoptimized
+                              crossOrigin="anonymous"
                               loading="lazy"
                               referrerPolicy="no-referrer"
                               onError={handleImgError}
@@ -252,6 +284,7 @@ export default function FavoritesPage() {
                               width={96}
                               height={96}
                               unoptimized
+                              crossOrigin="anonymous"
                               loading="lazy"
                               referrerPolicy="no-referrer"
                               onError={handleImgError}
