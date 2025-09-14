@@ -66,8 +66,8 @@ async function searchProducts(query: string, signal?: AbortSignal): Promise<Prod
     const singleEndpoints = [
       `https://api.alluresallol.com/product/${q}`,
       `https://api.alluresallol.com/product/${q}/`,
-      `https://api.alluresallol.com/product/products/${q}`,
-      `https://api.alluresallol.com/product/products/${q}/`,
+ //     `https://api.alluresallol.com/product/products/${q}`,
+ //     `https://api.alluresallol.com/product/products/${q}/`,
       `https://api.alluresallol.com/product?id=${encodeURIComponent(q)}`,
     ];
     const tryFetchSingle = async (url: string) => {
@@ -117,8 +117,8 @@ async function searchProducts(query: string, signal?: AbortSignal): Promise<Prod
     `https://api.alluresallol.com/product/`,
     `https://api.alluresallol.com/product`,
     // Additional known list endpoints as secondary options
-    `https://api.alluresallol.com/product/products/?search=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
-    `https://api.alluresallol.com/product/products/?q=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
+//    `https://api.alluresallol.com/product/products/?search=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
+//    `https://api.alluresallol.com/product/products/?q=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
     // Local proxies (keep last to avoid 404 noise if not configured)
     `/api/search?q=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
     `/api/product/products?search=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
@@ -180,7 +180,7 @@ async function fetchAllCategories(): Promise<Category[]> {
     // як фолбек — прямі адреси
     'https://api.alluresallol.com/product/categories',
     'https://api.alluresallol.com/product/categories/',
-    'https://api.alluresallol.com/product/products/categories',
+//    'https://api.alluresallol.com/product/products/categories',
   ];
 
   const tryMap = (json: any): Category[] => {
