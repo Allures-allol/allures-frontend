@@ -311,6 +311,7 @@ export default async function Home() {
               src="/baner1.png"
               alt="Літо в розпалі - знижки до 70%"
               fill
+              unoptimized
               style={{ objectFit: "cover", borderRadius: 16 }}
             />
           </div>
@@ -319,6 +320,7 @@ export default async function Home() {
               src="/baner2.png"
               alt="Літо в розпалі - нові колекції"
               fill
+              unoptimized
               style={{ objectFit: "cover", borderRadius: 16 }}
             />
           </div>
@@ -392,6 +394,7 @@ export default async function Home() {
                         alt={p.name || 'product'}
                         width={600}
                         height={200}
+                        unoptimized
                         style={{ width: '100%', height: '100%', objectFit: 'contain', transition: 'transform .25s ease' }}
                       />
                     </div>

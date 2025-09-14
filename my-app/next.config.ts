@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',           // фронт дергает /api/...
-        destination: 'https://api.alluresallol.com/product/:path*', // проксируем на /product
+        destination: 'https://api.alluresallol.com/:path*', // проксируем на корень API
       },
     ];
   },
