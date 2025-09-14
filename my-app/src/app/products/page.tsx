@@ -6,8 +6,10 @@ import Header from './../../components/headers/header';
 import Footer from './../../components/footers/footer';
 import styles from './products.module.css';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const CART_KEY = 'allures_cart_v1';
+const WISHLIST_KEY = 'allures_wishlist_v1';
 const BRAND_OPTIONS = ['Acer','Apple','ASUS','Dell','HP','Huawei','Lenovo','Microsoft','Samsung','Xiaomi'] as const;
 
 
@@ -41,6 +43,18 @@ type Review = {
   pos_score?: number;
   neg_score?: number;
   created_at?: string;
+};
+
+// Safe image src builder for API paths
+const imgSrc = (src?: string | null) => {
+  if (!src) return '/placeholder.png';
+  const trimmed = String(src).trim();
+  // Avoid requesting directory-like paths that 404 (e.g., "/product/" or any trailing slash)
+  if (!trimmed || /^(\/)?product\/?$/i.test(trimmed) || /\/$/.test(trimmed)) {
+    return '/placeholder.png';
+  }
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://api.alluresallol.com${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
 };
 
 /**
@@ -119,45 +133,56 @@ function getProductsByCategory(
   // Некоторые конфигурации серверов отдают 405 при наличии лишних слэшей / preflight.
   // Делаем несколько попыток с разными URL без дополнительных заголовков.
   const candidates = [
+    `https://api.alluresallol.com/product/`,
+    `https://api.alluresallol.com/product`,
     `https://api.alluresallol.com/product/products?${qs}`,
     `https://api.alluresallol.com/product/products/?${qs}`,
   ];
 
-  const tryFetch = async (url: string) => {
-    const res = await fetch(url, {
-      // без кастомных заголовков, чтобы не триггерить preflight
-      method: 'GET',
-      cache: 'no-store',
-      // mode: 'cors' // по умолчанию
-    });
-    if (!res.ok) {
-      const raw = await res.text().catch(() => '');
-      throw new Error(`HTTP ${res.status} ${res.statusText} :: ${raw.slice(0, 160)}`);
+  const tryFetch = async (url: string): Promise<{ data: any | null; error: string | null }> => {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: ctrl.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const raw = await res.text().catch(() => '');
+        return { data: null, error: `HTTP ${res.status} ${res.statusText} :: ${raw.slice(0, 160)}` };
+      }
+      const json = await res.json();
+      return { data: json, error: null };
+    } catch (e: any) {
+      console.warn('[products] fetch failed:', e?.message || e);
+      return { data: null, error: e?.message || 'Failed to fetch' };
     }
-    return res.json();
   };
 
   return (async () => {
     let data: any = null;
-    let lastErr: any = null;
+    let lastErr: string | null = null;
     for (const u of candidates) {
-      try {
-        data = await tryFetch(u);
-        break;
-      } catch (e) {
-        lastErr = e;
-      }
+      const r = await tryFetch(u);
+      if (r.data) { data = r.data; break; }
+      lastErr = r.error;
     }
     if (!data) {
-      console.error('API error:', lastErr);
+      console.error('API error (category):', lastErr);
       return { products: [], total: 0 };
     }
-
+  
     const list: any[] = Array.isArray(data?.items)
       ? data.items
+      : Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data?.products)
+      ? data.products
       : Array.isArray(data)
       ? data
-      : (Array.isArray(data?.results) ? data.results : []);
+      : [];
 
     // Фильтрация по категории: по имени категории или её id
     const normalized = (category || '').toString().trim().toLowerCase();
@@ -190,22 +215,61 @@ function getProductsByCategory(
 }
 
 async function getAllProducts(): Promise<{ products: Product[]; total: number }> {
+  // Используем рабочий листинг вместо /product/all (даёт 405)
+  const qs = `offset=0&limit=1000&sort=-id`;
+  const candidates = [
+    `https://api.alluresallol.com/product/`,
+    `https://api.alluresallol.com/product`,
+    `https://api.alluresallol.com/product/products?${qs}`,
+    `https://api.alluresallol.com/product/products/?${qs}`,
+  ];
+
+  const tryFetch = async (url: string): Promise<{ data: any | null; error: string | null }> => {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const res = await fetch(url, { method: 'GET', cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const raw = await res.text().catch(() => '');
+        return { data: null, error: `HTTP ${res.status} ${res.statusText} :: ${raw.slice(0, 160)}` };
+      }
+      const json = await res.json();
+      return { data: json, error: null };
+    } catch (e: any) {
+      console.warn('[products] fetch failed:', e?.message || e);
+      return { data: null, error: e?.message || 'Failed to fetch' };
+    }
+  };
+
   try {
-    // Берём всё и пагинируем на клиенте (API может не поддерживать offset/limit здесь)
-    const res = await fetch('https://api.alluresallol.com/product/all', {
-      method: 'GET',
-      cache: 'no-store',
-    });
-    if (!res.ok) {
-      const raw = await res.text().catch(() => '');
-      console.error('API error /product/all:', res.status, res.statusText, raw.slice(0, 200));
+    let data: any = null;
+    let lastErr: string | null = null;
+    for (const u of candidates) {
+      const r = await tryFetch(u);
+      if (r.data) { data = r.data; break; }
+      lastErr = r.error;
+    }
+    if (!data) {
+      console.error('API error /product/products:', lastErr);
       return { products: [], total: 0 };
     }
-    const data = await res.json();
-    const list: any[] = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : (Array.isArray(data?.results) ? data.results : []));
+  
+    const list: any[] = Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data?.products)
+      ? data.products
+      : Array.isArray(data)
+      ? data
+      : [];
 
-    // Только с картинкой
-    const withImage = list.filter((p: any) => p?.image && String(p.image).trim() !== '');
+    // Только с валидной картинкой (не директория и не пусто)
+    const withImage = list.filter((p: any) => {
+      const s = String(p?.image ?? '').trim();
+      return s !== '' && !/^(\/)?product\/?$/i.test(s) && !/\/$/.test(s);
+    });
 
     const mapped: Product[] = withImage.map((p: any) => ({
       id: Number(p.id),
@@ -228,10 +292,9 @@ async function getAllProducts(): Promise<{ products: Product[]; total: number }>
       updated_at: p.updated_at ?? undefined,
     }));
 
-    const total = mapped.length;
-    return { products: mapped, total };
+    return { products: mapped, total: mapped.length };
   } catch (err) {
-    console.error('Ошибка при загрузке всех товаров:', err);
+    console.error('Ошибка при загрузке всех товаров (/product/products):', err);
     return { products: [], total: 0 };
   }
 }
@@ -240,6 +303,7 @@ function CategoryPageInner({ params }: any) {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
   const [ratings, setRatings] = React.useState<Record<number, number>>({});
+  const [wishlist, setWishlist] = React.useState<number[]>([]);
 
   const [selectedBrands, setSelectedBrands] = React.useState<Set<string>>(new Set());
   const router = useRouter();
@@ -317,6 +381,74 @@ function CategoryPageInner({ params }: any) {
     })();
     return () => ctrl.abort();
   }, [products]);
+
+  // ---- Wishlist helpers
+  const readWishlist = React.useCallback((): any[] => {
+    try {
+      const raw = window.localStorage.getItem(WISHLIST_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const writeWishlist = React.useCallback((items: any[]) => {
+    try {
+      window.localStorage.setItem(WISHLIST_KEY, JSON.stringify(items));
+      window.dispatchEvent(new Event('wishlist:changed'));
+    } catch {}
+  }, []);
+
+  const syncWishlistIds = React.useCallback(() => {
+    const arr = readWishlist();
+    const ids = arr.map((x: any) => Number(x?.id)).filter((v: any) => Number.isFinite(v));
+    setWishlist(ids);
+  }, [readWishlist]);
+
+  React.useEffect(() => {
+    // initial load
+    syncWishlistIds();
+    const onStorage = (e: StorageEvent) => {
+      if (!e || e.key === null || e.key === WISHLIST_KEY) syncWishlistIds();
+    };
+    const onCustom = () => syncWishlistIds();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('wishlist:changed', onCustom as any);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('wishlist:changed', onCustom as any);
+    };
+  }, [syncWishlistIds]);
+
+  const isInWishlist = React.useCallback((id: number) => wishlist.includes(Number(id)), [wishlist]);
+
+  const toggleWishlist = React.useCallback((p: Product) => {
+    try {
+      const arr = readWishlist();
+      const idx = arr.findIndex((x: any) => Number(x?.id) === Number(p.id));
+      if (idx >= 0) {
+        // remove
+        arr.splice(idx, 1);
+      } else {
+        // add minimal product snapshot
+        arr.push({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          old_price: typeof p.old_price === 'number' ? p.old_price : null,
+          image: p.image || null,
+          category_name: p.category_name || null,
+          added_at: new Date().toISOString(),
+        });
+      }
+      writeWishlist(arr);
+      const ids = arr.map((x: any) => Number(x?.id)).filter((v: any) => Number.isFinite(v));
+      setWishlist(ids);
+    } catch (e) {
+      console.error('toggleWishlist error:', e);
+    }
+  }, [readWishlist, writeWishlist]);
 
   const handleAddToCart = React.useCallback((p: Product) => {
     try {
@@ -524,11 +656,44 @@ function CategoryPageInner({ params }: any) {
 
 
           <span className={styles.count}>Знайдено {effectiveTotal} товарів</span>
-          <div className={styles.grid}>
+          <div className={`${styles.grid} threeUp`}>
             {pageProducts.map((p) => (
-              <div key={p.id} className={styles.card}>
+              <div key={p.id} className={styles.card} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  aria-label={isInWishlist(p.id) ? 'Прибрати з обраного' : 'Додати в обране'}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWishlist(p); }}
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    zIndex: 2,
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    background: 'rgba(255,255,255,0.9)',
+                    backdropFilter: 'blur(4px)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                  title={isInWishlist(p.id) ? 'Прибрати з обраного' : 'Додати в обране'}
+                >
+                  <span style={{ fontSize: 18, lineHeight: 1, color: isInWishlist(p.id) ? '#ef4444' : '#9ca3af' }}>
+                    {isInWishlist(p.id) ? '❤' : '♡'}
+                  </span>
+                </button>
                 <Link href={`/products/${p.id}`} className={styles.cardLink} aria-label={p.name}>
-                  <img src={p.image} alt={p.name} className={styles.image} />
+                  <Image
+                    src={imgSrc(p.image)}
+                    alt={p.name}
+                    width={600}
+                    height={400}
+                    className={styles.image}
+                    style={{ objectFit: 'contain' }}
+                  />
                   <h3 className={styles.name}>{p.name}</h3>
                   <div style={{ marginTop: 4 }}>
                     <Stars value={ratings[p.id] ?? 0} />
@@ -659,6 +824,18 @@ function CategoryPageInner({ params }: any) {
       </main>
 
       <Footer />
+      <style jsx>{`
+        /* Force 3-up grid on tablets & phones */
+        @media (max-width: 992px) {
+          .threeUp { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        }
+        @media (max-width: 768px) {
+          .threeUp { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        }
+        @media (max-width: 480px) {
+          .threeUp { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        }
+      `}</style>
     </>
   );
 }

@@ -1,6 +1,3 @@
-
-
-
 .footer {
   width: 100%;
   max-width: 1920px;
@@ -8,19 +5,19 @@
   background-color: #3b70f6;
   color: #ffffff;
   font-family: Arial, sans-serif;
-  padding: 40px 80px;
+  padding: 28px 40px;
   box-sizing: border-box;
 }
 
 .footerColumns {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 .footerColumn {
   flex: 1;
-  margin-right: 20px;
+  margin-right: 16px;
 }
 
 .footerColumn:last-child {
@@ -28,8 +25,8 @@
 }
 
 .footerColumn h3 {
-  font-size: 20px;
-  margin-bottom: 16px;
+  font-size: 18px;
+  margin-bottom: 12px;
   font-weight: 700;
 }
 
@@ -40,8 +37,8 @@
 }
 
 .footerColumn li {
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: 6px;
+  font-size: 13px;
 }
 
 .footerColumn li a {
@@ -57,12 +54,12 @@
 .footerApps {
   display: flex;
   align-items: center;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 .footerApps img {
-  margin-right: 20px;
-  height: 50px;
+  margin-right: 12px;
+  height: 44px;
   object-fit: contain;
   cursor: pointer;
 }
@@ -70,13 +67,13 @@
 .footerSocial {
   display: flex;
   align-items: center;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 .footerSocial img {
-  margin-right: 20px;
-  width: 32px;
-  height: 32px;
+  margin-right: 12px;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
   filter: brightness(0) invert(1);
   transition: filter 0.2s;
@@ -91,12 +88,12 @@
   justify-content: flex-end;
   align-items: center;
   border-top: 1px solid rgba(255,255,255,0.3);
-  padding-top: 20px;
+  padding-top: 12px;
 }
 
 .footerPayments img {
-  margin-left: 20px;
-  height: 32px;
+  margin-left: 12px;
+  height: 28px;
   object-fit: contain;
   filter: brightness(0) invert(1);
   cursor: pointer;
@@ -105,4 +102,124 @@
 
 .footerPayments img:hover {
   filter: brightness(0.8) invert(1);
+}
+
+/* =====================
+   Mobile / Responsive
+   ===================== */
+
+/* Large tablets / small desktops */
+@media (max-width: 1200px) {
+  .footer {
+    padding: 24px 32px;
+  }
+  .footerColumns {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .footerColumn {
+    flex: 1 1 240px;
+  }
+}
+
+/* Tablets */
+@media (max-width: 992px) {
+  .footer {
+    padding: 22px 24px;
+  }
+  .footerColumn h3 {
+    font-size: 16px;
+  }
+  .footerColumn li {
+    font-size: 12px;
+  }
+  .footerApps img {
+    height: 40px;
+    margin-right: 12px;
+  }
+  .footerSocial img {
+    width: 24px;
+    height: 24px;
+    margin-right: 16px;
+  }
+  .footerPayments {
+    justify-content: center;
+  }
+  .footerPayments img {
+    height: 24px;
+    margin-left: 10px;
+  }
+}
+
+/* Large phones / small tablets */
+@media (max-width: 768px) {
+  .footer {
+    padding: 20px 16px;
+    text-align: center;
+  }
+  .footerColumns {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .footerColumn {
+    margin-right: 0;
+  }
+  .footerColumn:last-child {
+    margin-right: 0;
+  }
+  .footerApps,
+  .footerSocial {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .footerApps img {
+    height: 36px;
+    margin-right: 10px;
+  }
+  .footerSocial img {
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+  }
+  .footerPayments {
+    padding-top: 12px;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .footerPayments img {
+    height: 22px;
+    margin-left: 8px;
+  }
+}
+
+/* Phones */
+@media (max-width: 480px) {
+  .footer {
+    padding: 16px 12px;
+  }
+  .footerColumn h3 {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+  .footerColumn li {
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .footerApps img {
+    height: 32px;
+    margin-right: 8px;
+  }
+  .footerSocial img {
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+  }
+  .footerPayments img {
+    height: 22px;
+    margin-left: 8px;
+  }
 }

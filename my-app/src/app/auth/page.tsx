@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from "next/navigation";
 import styles from './auth.module.css';
 import type { UserOut} from '../../types/User';
@@ -10,6 +10,10 @@ const TAB_REGISTER: AuthTab = 'register';
 const TAB_LOGIN: AuthTab = 'login';
 
 const AUTH_BASE = 'https://api.alluresallol.com/auth';
+// === Auth token storage (10 minutes TTL) ===
+const TOKEN_KEY = 'allures_jwt';
+const TOKEN_EXPIRES_AT_KEY = 'allures_jwt_expires_at';
+const TOKEN_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 async function smartAuthFetch(path: string, body: any): Promise<Response> {
   // Прямий запит на бекенд авторизації
@@ -41,11 +45,58 @@ export default function AuthPage() {
   const [user, setUser] = useState<UserOut | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
+  const expiryTimerRef = useRef<number | null>(null);
+
+  const scheduleExpiry = (ms: number) => {
+    if (expiryTimerRef.current) {
+      clearTimeout(expiryTimerRef.current);
+    }
+    expiryTimerRef.current = window.setTimeout(() => {
+      try {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
+      } catch {}
+    }, Math.max(0, ms));
+  };
+
+  const setAuthToken = (token: string) => {
+    try {
+      const expiresAt = Date.now() + TOKEN_TTL_MS;
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(TOKEN_EXPIRES_AT_KEY, String(expiresAt));
+      scheduleExpiry(expiresAt - Date.now());
+    } catch {}
+  };
+
   const isRegister = activeTab === TAB_REGISTER;
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 3500);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      const expRaw = localStorage.getItem(TOKEN_EXPIRES_AT_KEY);
+      const exp = expRaw ? Number(expRaw) : NaN;
+
+      if (token && !Number.isNaN(exp)) {
+        const remain = exp - Date.now();
+        if (remain > 0) {
+          scheduleExpiry(remain);
+        } else {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
+        }
+      }
+    } catch {}
+
+    return () => {
+      if (expiryTimerRef.current) {
+        clearTimeout(expiryTimerRef.current);
+      }
+    };
   }, []);
 
   if (loading) {
@@ -177,7 +228,7 @@ export default function AuthPage() {
 
     if (activeTab === TAB_LOGIN) {
       if (data.access_token) {
-        localStorage.setItem('allures_jwt', data.access_token);
+        setAuthToken(data.access_token);
       }
       setUser({
         id: data.id || 0,
@@ -287,7 +338,7 @@ export default function AuthPage() {
                 Забули пароль?
               </a>
             </div>
-            <button type="button" className={styles.googleBtn}>
+            {/* <button type="button" className={styles.googleBtn}>
               Продовжити з Google
               <Image
                 src="https://www.svgrepo.com/show/475656/google-color.svg"
@@ -296,7 +347,7 @@ export default function AuthPage() {
                 height={22}
                 className={styles.googleIcon}
               />
-            </button>
+            </button> */}
             <div className={styles.info}>
               <p>{`Увійшовши в систему, ви погоджуєтеся з 'Умовами…'`}</p>
               <a

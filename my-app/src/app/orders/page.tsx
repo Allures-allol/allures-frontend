@@ -58,8 +58,12 @@ type Order = {
   orderId: string;
   userId: string; // если нет auth — используем email/телефон/anon
   productId: string;
+  productName?: string;  // ✅ имя товара
+  unitPrice?: number;    // ✅ цена за 1 единицу
+  image?: string | null; // ✅ превью
   quantity: number;
-  totalPrice: number;
+  totalPrice: number;    // сумма по позиции (unitPrice * quantity)
+  orderTotal?: number;   // ✅ полная стоимость всей покупки
   companyId: string; // если нет — c-unknown
   deliveryAddress: string;
   status: 'pending' | 'approved' | 'shipped' | 'delivered' | 'canceled' | string;
@@ -266,20 +270,49 @@ export default function OrdersPage() {
       : (delivery.courierAddress || delivery.city);
 
     // Превращаем каждую позицию корзины в запись заказа (pending, isPaid: false)
-    const derivedOrders: Order[] = items.map((it, idx) => ({
-      orderId: orderId + (items.length > 1 ? `-${idx + 1}` : ''),
-      userId: String(userId),
-      productId: String(it.id),
-      quantity: Math.max(1, Number(it.qty || 1)),
-      totalPrice: Number(it.price || 0) * Math.max(1, Number(it.qty || 1)),
-      companyId,
-      deliveryAddress,
-      status: 'pending',
-      isPaid: false,
-    }));
+    const derivedOrders: Order[] = items.map((it, idx) => {
+      const qty = Math.max(1, Number(it.qty || 1));
+      const unit = Number(it.price || 0);
+      return {
+        orderId: orderId + (items.length > 1 ? `-${idx + 1}` : ''),
+        userId: String(userId),
+        productId: String(it.id),
+        productName: String(it.name || ''), // ✅ имя товара
+        unitPrice: unit,                     // ✅ цена за 1
+        image: it.image ?? null,             // ✅ превью
+        quantity: qty,
+        totalPrice: unit * qty,              // сумма по позиции
+        orderTotal: total,                   // ✅ сумма всей покупки
+        companyId,
+        deliveryAddress,
+        status: 'pending',
+        isPaid: false,
+      } as Order;
+    });
 
-    // Пишем историю в localStorage
-    saveOrdersHistory(derivedOrders);
+    // Сохраняем краткий снапшот последней покупки (для быстрого отображения в UI)
+    try {
+      const snapshot = {
+        orderId,
+        total,
+        currency: 'UAH',
+        createdAt: new Date().toISOString(),
+        items: items.map((it) => {
+          const qty = Math.max(1, Number(it.qty || 1));
+          const unit = Number(it.price || 0);
+          return {
+            id: it.id,
+            name: it.name,
+            unitPrice: unit,          // ✅ цена за 1 единицу
+            qty,
+            lineTotal: unit * qty,    // сумма по позиции
+            image: it.image || null,
+          };
+        }),
+      };
+      window.localStorage.setItem('last_purchase_v1', JSON.stringify(snapshot));
+    } catch {}
+
 
     // Переходим на страницу успеха
     router.push(`/succes?order=${encodeURIComponent(orderId)}`);

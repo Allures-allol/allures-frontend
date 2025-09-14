@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '../../../components/headers/header';
 import Footer from '../../../components/footers/footer';
+import Image from 'next/image';
 
 const CART_KEY = 'allures_cart_v1';
+const WISHLIST_KEY = 'allures_wishlist_v1';
 
 type Product = {
   id: number;
@@ -28,6 +30,35 @@ type Product = {
   updated_at?: string;
 };
 
+// Build safe image URLs from API payloads
+const imgSrc = (src?: string | null) => {
+  if (!src) return '/placeholder.png';
+  const trimmed = String(src).trim();
+  if (!trimmed || /^(\/)?product\/?$/i.test(trimmed) || /\/$/.test(trimmed)) {
+    return '/placeholder.png';
+  }
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://api.alluresallol.com${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+};
+
+// Read Allures JWT from localStorage
+const getStoredAlluresToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const keys = ['allures_jwt', 'alluresJwt', 'authToken', 'token', 'jwt'];
+  for (const k of keys) {
+    const v = localStorage.getItem(k);
+    if (v && String(v).trim()) return String(v).trim();
+  }
+  // Fallback: any JWT-looking value (xxx.yyy.zzz)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) as string;
+      const val = localStorage.getItem(key) || '';
+      if (/\b[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b/.test(val)) return val.trim();
+    }
+  } catch {}
+  return null;
+};
 // ==== Reviews ====
 type Review = {
   id: number;
@@ -61,67 +92,171 @@ function sentimentBadgeColor(sent: string): { bg: string; color: string; border:
 }
 
 async function getReviews(productId: string): Promise<Review[]> {
-  try {
-    const res = await fetch(`https://api.alluresallol.com/review/product/${productId}`, { cache: 'no-store' });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const list: any[] = Array.isArray(data)
-      ? data
-      : Array.isArray((data as any)?.items)
-      ? (data as any).items
-      : Array.isArray((data as any)?.results)
-      ? (data as any).results
-      : [];
+  const id = String(productId).trim();
+  const urls = [
+    `https://api.alluresallol.com/review/product/${id}`,
+    `https://api.alluresallol.com/review/product/${id}/`,
+    `https://api.alluresallol.com/review/product?product_id=${encodeURIComponent(id)}`,
+    `https://api.alluresallol.com/review/product/?product_id=${encodeURIComponent(id)}`,
+  ];
 
-    return list
-      .map((r: any): Review => ({
-        id: Number(r?.id ?? 0),
-        product_id: Number(r?.product_id ?? 0),
-        user_id: Number(r?.user_id ?? 0),
-        text: String(r?.text ?? ''),
-        sentiment: String(r?.sentiment ?? ''),
-        pos_score: Number(r?.pos_score ?? 0),
-        neg_score: Number(r?.neg_score ?? 0),
-        created_at: String(r?.created_at ?? ''),
-      }))
-      .filter((r) => Number.isFinite(r.id))
-      .sort((a, b) => (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0));
-  } catch (e) {
-    console.error('Ошибка загрузки отзывов:', e);
-    return [];
+  const token = getStoredAlluresToken();
+  const headerSets: Array<Record<string, string>> = [
+    token ? { Accept: 'application/json', Authorization: `Bearer ${token}` } : { Accept: 'application/json' },
+    token ? { Accept: 'application/json', Authorization: `JWT ${token}` }    : { Accept: 'application/json' },
+    token ? { Accept: 'application/json', Authorization: `Token ${token}` }  : { Accept: 'application/json' },
+  ];
+
+  const tryFetch = async (url: string) => {
+    for (const headers of headerSets) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 12000);
+        const res = await fetch(url, { method: 'GET', cache: 'no-store', headers, signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) continue;
+        const data = await res.json().catch(() => null);
+        if (!data) continue;
+        const list: any[] = Array.isArray(data)
+          ? data
+          : Array.isArray((data as any)?.items)
+          ? (data as any).items
+          : Array.isArray((data as any)?.results)
+          ? (data as any).results
+          : [];
+        if (!Array.isArray(list)) continue;
+        const mapped: Review[] = list
+          .map((r: any): Review => ({
+            id: Number(r?.id ?? 0),
+            product_id: Number(r?.product_id ?? id),
+            user_id: Number(r?.user_id ?? 0),
+            text: String(r?.text ?? ''),
+            sentiment: String(r?.sentiment ?? ''),
+            pos_score: Number(r?.pos_score ?? 0),
+            neg_score: Number(r?.neg_score ?? 0),
+            created_at: String(r?.created_at ?? ''),
+          }))
+          .filter((r) => Number.isFinite(r.id));
+        return mapped;
+      } catch {}
+    }
+    return null;
+  };
+
+  let lastErr: any = null;
+  for (const u of urls) {
+    const result = await tryFetch(u);
+    if (Array.isArray(result)) {
+      return result.sort((a, b) => (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0));
+    }
   }
+
+  console.warn('getReviews: no data received for product', id);
+  return [];
 }
 
 async function getProduct(id: string): Promise<Product | null> {
-  try {
-    const res = await fetch(`https://api.alluresallol.com/product/${id}`, { cache: 'no-store' });
-    if (!res.ok) return null;
-    const raw = await res.json();
-    const mapped: Product = {
-      id: Number(raw.id),
-      company_id: raw.company_id ?? undefined,
-      name: String(raw.name ?? ''),
-      description: raw.description ?? undefined,
-      price: Number(raw.price ?? 0),
-      status: raw.status ?? undefined,
-      current_inventory: typeof raw.current_inventory === 'number' ? raw.current_inventory : undefined,
-      category_id: typeof raw.category_id === 'number' ? raw.category_id : undefined,
-      category_name: raw.category_name ?? undefined,
-      old_price: typeof raw.old_price === 'number' ? raw.old_price : undefined,
-      image: String(raw.image ?? ''),
-      subcategory: raw.subcategory ?? undefined,
-      product_type: raw.product_type ?? undefined,
-      is_hit: Boolean(raw.is_hit),
-      is_discount: Boolean(raw.is_discount),
-      is_new: Boolean(raw.is_new),
-      created_at: raw.created_at ?? undefined,
-      updated_at: raw.updated_at ?? undefined,
-    };
-    return mapped;
-  } catch (e) {
-    console.error('Ошибка при загрузке товара:', e);
+  const urls = [
+    `https://api.alluresallol.com/product/${id}`,
+    `https://api.alluresallol.com/product/${id}/`,
+    `https://api.alluresallol.com/product/products/${id}`,
+    `https://api.alluresallol.com/product/products/${id}/`,
+    `https://api.alluresallol.com/product?id=${encodeURIComponent(String(id))}`,
+  ];
+
+  const tryFetch = async (url: string): Promise<{ data: any | null; error: string | null }> => {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const res = await fetch(url, { method: 'GET', cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const raw = await res.text().catch(() => '');
+        return { data: null, error: `HTTP ${res.status} ${res.statusText} :: ${raw.slice(0, 160)}` };
+      }
+      const json = await res.json();
+      return { data: json, error: null };
+    } catch (e: any) {
+      return { data: null, error: e?.message || 'Failed to fetch' };
+    }
+  };
+
+  // 1) Try direct item endpoints
+  let data: any = null;
+  let lastErr: string | null = null;
+  for (const u of urls) {
+    const r = await tryFetch(u);
+    if (r.data) { data = r.data; break; }
+    lastErr = r.error;
+  }
+
+  // 2) Fallback: fetch list endpoints and search item locally when direct calls fail (e.g., CORS)
+  if (!data) {
+    const qs = `offset=0&limit=1000&sort=-id`;
+    const listCandidates = [
+      `https://api.alluresallol.com/product/`,
+      `https://api.alluresallol.com/product`,
+      `https://api.alluresallol.com/product/products?${qs}`,
+      `https://api.alluresallol.com/product/products/?${qs}`,
+    ];
+    for (const u of listCandidates) {
+      const r = await tryFetch(u);
+      if (r.data) { data = r.data; break; }
+      lastErr = r.error;
+    }
+  }
+
+  if (!data) {
+    console.error('getProduct: API error', lastErr);
     return null;
   }
+
+  // 3) Normalize payload (items/results/products/array or direct object)
+  const arr: any[] = Array.isArray((data as any)?.items)
+    ? (data as any).items
+    : Array.isArray((data as any)?.results)
+    ? (data as any).results
+    : Array.isArray((data as any)?.products)
+    ? (data as any).products
+    : Array.isArray(data)
+    ? (data as any)
+    : [];
+
+  const rawObj = (!Array.isArray(data) && typeof data === 'object') ? (data as any) : null;
+
+  let raw: any = null;
+  if (rawObj && (rawObj.id !== undefined || rawObj.name !== undefined)) {
+    raw = rawObj;
+  } else if (arr.length > 0) {
+    const numId = Number(id);
+    raw = arr.find((p: any) => Number(p?.id) === numId) || arr.find((p: any) => String(p?.id) === String(id));
+    if (!raw) raw = arr[0];
+  }
+
+  if (!raw) return null;
+
+  const mapped: Product = {
+    id: Number(raw.id),
+    company_id: raw.company_id ?? undefined,
+    name: String(raw.name ?? ''),
+    description: raw.description ?? undefined,
+    price: Number(raw.price ?? 0),
+    status: raw.status ?? undefined,
+    current_inventory: typeof raw.current_inventory === 'number' ? raw.current_inventory : undefined,
+    category_id: typeof raw.category_id === 'number' ? raw.category_id : undefined,
+    category_name: raw.category_name ?? undefined,
+    old_price: typeof raw.old_price === 'number' ? raw.old_price : undefined,
+    image: String(raw.image ?? ''),
+    subcategory: raw.subcategory ?? undefined,
+    product_type: raw.product_type ?? undefined,
+    is_hit: Boolean(raw.is_hit),
+    is_discount: Boolean(raw.is_discount),
+    is_new: Boolean(raw.is_new),
+    created_at: raw.created_at ?? undefined,
+    updated_at: raw.updated_at ?? undefined,
+  };
+  if (!Number.isFinite(mapped.id)) return null;
+  return mapped;
 }
 
 export default function ProductDetailPage() {
@@ -133,6 +268,66 @@ export default function ProductDetailPage() {
   const id = (params?.id as string) || '';
 
   const router = useRouter();
+
+  // Wishlist state
+  const [inWishlist, setInWishlist] = React.useState<boolean>(false);
+
+  // ---- Wishlist helpers
+  const readWishlist = React.useCallback((): any[] => {
+    try {
+      const raw = window.localStorage.getItem(WISHLIST_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const writeWishlist = React.useCallback((items: any[]) => {
+    try {
+      window.localStorage.setItem(WISHLIST_KEY, JSON.stringify(items));
+      window.dispatchEvent(new Event('wishlist:changed'));
+    } catch {}
+  }, []);
+
+  const syncWishlist = React.useCallback((pid?: number) => {
+    if (!pid) { setInWishlist(false); return; }
+    const arr = readWishlist();
+    const exists = arr.some((x: any) => Number(x?.id) === Number(pid));
+    setInWishlist(exists);
+  }, [readWishlist]);
+
+  const toggleWishlist = React.useCallback((p: Product) => {
+    try {
+      const arr = readWishlist();
+      const idx = arr.findIndex((x: any) => Number(x?.id) === Number(p.id));
+      if (idx >= 0) {
+        // remove
+        arr.splice(idx, 1);
+      } else {
+        // add minimal product snapshot
+        arr.push({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          old_price: typeof p.old_price === 'number' ? p.old_price : null,
+          image: p.image || null,
+          category_name: p.category_name || null,
+          added_at: new Date().toISOString(),
+        });
+      }
+      writeWishlist(arr);
+      setInWishlist(arr.some((x: any) => Number(x?.id) === Number(p.id)));
+    } catch (e) {
+      console.error('toggleWishlist error:', e);
+    }
+  }, [readWishlist, writeWishlist]);
+
+  // Sync wishlist flag when product changes
+  React.useEffect(() => {
+    if (product?.id) syncWishlist(product.id);
+    else setInWishlist(false);
+  }, [product, syncWishlist]);
 
   const addToCart = React.useCallback((p: Product, qty: number = 1) => {
     try {
@@ -230,10 +425,6 @@ export default function ProductDetailPage() {
     color: '#000',
   } as const;
 
-  // placeholder.png — запасна картинка, повинна бути в public/
-  const imageUrl = product.image
-    ? (product.image.startsWith('http') ? product.image : `https://api.alluresallol.com${product.image}`)
-    : '/placeholder.png';
 
   return (
     <>
@@ -253,7 +444,7 @@ export default function ProductDetailPage() {
         <Link href="/">🏠</Link>
         <span>/</span>
         <Link
-          href={`/products?category=${encodeURIComponent(product.category_name || '')}`}
+          href={`/products?category=${encodeURIComponent(String((product.category_id ?? product.category_name) || ''))}`}
           style={{ color: '#555', textDecoration: 'none' }}
         >
           {product.category_name}
@@ -303,29 +494,54 @@ export default function ProductDetailPage() {
         <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
           {/* Left column: main image */}
           <div style={{ flex: '1 1 300px', minWidth: 300 }}>
-            {imageUrl && (
-              <div style={{ position: 'relative' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imageUrl}
-                  alt={product.name}
-                  width={600}
-                  height={600}
-                  style={{ borderRadius: 8, objectFit: 'contain', width: '100%', height: 'auto', display: 'block' }}
-                />
-                <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 6 }}>
-                  {product.is_new && (
-                    <span style={{ padding: '2px 6px', borderRadius: 8, background: '#DCFCE7', color: '#166534', fontSize: 11 }}>NEW</span>
-                  )}
-                  {product.is_hit && (
-                    <span style={{ padding: '2px 6px', borderRadius: 8, background: '#E0E7FF', color: '#3730A3', fontSize: 11 }}>HIT</span>
-                  )}
-                  {product.is_discount && (
-                    <span style={{ padding: '2px 6px', borderRadius: 8, background: '#FEE2E2', color: '#991B1B', fontSize: 11 }}>SALE</span>
-                  )}
-                </div>
+            <div style={{ position: 'relative' }}>
+              <Image
+                src={imgSrc(product.image)}
+                alt={product.name}
+                width={800}
+                height={800}
+                style={{ borderRadius: 8, objectFit: 'contain', width: '100%', height: 'auto', display: 'block' }}
+              />
+              <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 6 }}>
+                {product.is_new && (
+                  <span style={{ padding: '2px 6px', borderRadius: 8, background: '#DCFCE7', color: '#166534', fontSize: 11 }}>NEW</span>
+                )}
+                {product.is_hit && (
+                  <span style={{ padding: '2px 6px', borderRadius: 8, background: '#E0E7FF', color: '#3730A3', fontSize: 11 }}>HIT</span>
+                )}
+                {product.is_discount && (
+                  <span style={{ padding: '2px 6px', borderRadius: 8, background: '#FEE2E2', color: '#991B1B', fontSize: 11 }}>SALE</span>
+                )}
               </div>
-            )}
+              {/* Wishlist heart on image */}
+              <button
+                type="button"
+                aria-label={inWishlist ? 'Прибрати з обраного' : 'Додати в обране'}
+                onClick={() => product && toggleWishlist(product)}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  zIndex: 3,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  background: 'rgba(255,255,255,0.9)',
+                  backdropFilter: 'blur(4px)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}
+                title={inWishlist ? 'Прибрати з обраного' : 'Додати в обране'}
+              >
+                <span aria-hidden style={{ fontSize: 18, lineHeight: 1, color: inWishlist ? '#ef4444' : '#9ca3af' }}>
+                  {inWishlist ? '❤' : '♡'}
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Right column: product info */}
@@ -391,8 +607,16 @@ export default function ProductDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
               <div style={{ fontSize: 20, color: '#0070f3' }}>{'★★★★☆'}</div>
               <span style={{ fontSize: 20, cursor: 'pointer' }}>💬</span>
-              <span style={{ marginLeft: 'auto', fontSize: 20, cursor: 'pointer' }}>⚖️</span>
-              <span style={{ fontSize: 20, cursor: 'pointer' }}>❤</span>
+              {/* <span style={{ marginLeft: 'auto', fontSize: 20, cursor: 'pointer' }}>⚖️</span> */}
+              <button
+                type="button"
+                aria-label={inWishlist ? 'Прибрати з обраного' : 'Додати в обране'}
+                onClick={() => product && toggleWishlist(product)}
+                style={{ fontSize: 20, cursor: 'pointer', border: 'none', background: 'transparent', padding: 0 }}
+                title={inWishlist ? 'Прибрати з обраного' : 'Додати в обране'}
+              >
+                <span aria-hidden>{inWishlist ? '❤' : '♡'}</span>
+              </button>
             </div>
 
             {/* Color swatches & code */}

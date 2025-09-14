@@ -104,6 +104,16 @@ export type ProductReview = {
   pos_score: number;
   neg_score: number;
   created_at?: string;
+  // Backend review status (editable)
+  status?: 'PENDING' | 'REJECTED' | 'APPROVED';
+};
+const REVIEW_STATUSES = ['PENDING', 'REJECTED', 'APPROVED'] as const;
+
+const normalizeReviewStatus = (v: unknown): 'PENDING' | 'REJECTED' | 'APPROVED' => {
+  const s = String(v ?? '').toUpperCase();
+  if (s === 'APPROVED') return 'APPROVED';
+  if (s === 'REJECTED') return 'REJECTED';
+  return 'PENDING';
 };
 
 export type CategoryOption = { id: number | string; name: string };
@@ -319,46 +329,126 @@ const demoReviews: ReviewRow[] = Array.from({ length: 10 }).map((_, i) => ({
 const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_BASE || '';
 
 async function fetchUsers(role?: Role): Promise<UserRow[]> {
+  // target upstream: https://api.alluresallol.com/auth/all?limit=100&offset=0
+  // we still prefer going through a server proxy first to avoid exposing tokens.
   try {
-    const params = new URLSearchParams({ limit: '100', offset: '0' });
+    const params = new URLSearchParams({
+      limit: '100',
+      offset: '0',
+    });
     if (role && role !== 'all') params.set('role', String(role));
 
-    // Call our server proxy. The server route should read ADMIN_JWT (not NEXT_PUBLIC_*)
-    // and forward the request to the upstream with Authorization header.
-    const res = await fetch(`/api/admin/users?${params.toString()}`, {
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-    });
+    // Try proxy endpoints (any of these may exist in your project):
+    const candidateUrls = [
+      `/api/admin/users?${params.toString()}`,            // old proxy
+      `/api/admin/auth-all?${params.toString()}`,         // proxy that targets /auth/all
+      `/api/admin/users-all?${params.toString()}`,        // another common alias
+    ];
 
-    if (!res.ok) {
-      let reason = '';
-      try { reason = await res.text(); } catch {}
-      throw new Error(`Users ${res.status}${reason ? `: ${reason.slice(0, 140)}` : ''}`);
+    for (const url of candidateUrls) {
+      try {
+        const res = await fetch(url, {
+          cache: 'no-store',
+          headers: { accept: 'application/json' },
+        });
+        if (!res.ok) continue;
+        const json = await res.json();
+
+        const items: any[] = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.items)
+          ? json.items
+          : Array.isArray(json?.results)
+          ? json.results
+          : Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.users)
+          ? json.users
+          : Array.isArray(json?.results?.items)
+          ? json.results.items
+          : [];
+
+        if (items.length === 0) continue;
+
+        const mapped: UserRow[] = items.map((u: any, idx: number) => {
+          const fullName =
+            u.full_name ||
+            [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+          const displayName =
+            u.name || fullName || u.username || u.login || u.email || `Користувач ${idx + 1}`;
+          const roleRaw = String(u.role ?? u.user_role ?? 'user').toLowerCase() as Role;
+
+          return {
+            id: u.id ?? u.user_id ?? idx,
+            login: u.login ?? u.username ?? '',
+            full_name: fullName || undefined,
+            name: String(displayName),
+            email: String(u.email || '—'),
+            phone: u.phone ?? u.phone_number ?? '',
+            avatar_url: u.avatar_url ?? u.avatar ?? '',
+            language: u.language ?? u.lang ?? 'uk',
+            bonus_balance:
+              typeof u.bonus_balance === 'number'
+                ? u.bonus_balance
+                : Number(u.bonus_balance ?? 0) || 0,
+            delivery_address: u.delivery_address ?? u.address ?? '',
+            registered_at:
+              u.registered_at || u.date_joined || u.created_at || u.createdAt || undefined,
+            role: roleRaw || 'user',
+            is_blocked: Boolean(u.is_blocked ?? u.blocked ?? false),
+            created_at: u.created_at || u.createdAt || undefined,
+          } as UserRow;
+        });
+
+        return role && role !== 'all'
+          ? mapped.filter((r) => String(r.role) === String(role))
+          : mapped;
+      } catch {
+        // try next candidate
+      }
     }
 
-    const json = await res.json();
+    // FINAL FALLBACK: call upstream directly (optionally with a *public* token if provided)
+    // WARNING: Do not put secret tokens into NEXT_PUBLIC_* in production.
+    const upstream = new URL('https://api.alluresallol.com/auth/all');
+    upstream.search = params.toString();
 
-    const items: any[] = Array.isArray(json)
-      ? json
-      : Array.isArray(json?.items)
-      ? json.items
-      : Array.isArray(json?.results)
-      ? json.results
-      : Array.isArray(json?.data)
-      ? json.data
-      : Array.isArray(json?.users)
-      ? json.users
-      : Array.isArray(json?.results?.items)
-      ? json.results.items
+    const publicBearer = process.env.NEXT_PUBLIC_SERVICE_ADMIN_JWT?.trim();
+    const upstreamRes = await fetch(upstream.toString(), {
+      cache: 'no-store',
+      headers: {
+        accept: 'application/json',
+        ...(publicBearer ? { Authorization: `Bearer ${publicBearer}` } : {}),
+      },
+    });
+
+    if (!upstreamRes.ok) {
+      // fall back to demo users if upstream fails
+      throw new Error(`Upstream ${upstreamRes.status}`);
+    }
+
+    const upstreamJson = await upstreamRes.json();
+    const upstreamItems: any[] = Array.isArray(upstreamJson)
+      ? upstreamJson
+      : Array.isArray(upstreamJson?.items)
+      ? upstreamJson.items
+      : Array.isArray(upstreamJson?.results)
+      ? upstreamJson.results
+      : Array.isArray(upstreamJson?.data)
+      ? upstreamJson.data
+      : Array.isArray(upstreamJson?.users)
+      ? upstreamJson.users
+      : Array.isArray(upstreamJson?.results?.items)
+      ? upstreamJson.results.items
       : [];
 
-    const out: UserRow[] = items.map((u: any, idx: number) => {
+    const mappedFallback: UserRow[] = upstreamItems.map((u: any, idx: number) => {
       const fullName =
         u.full_name ||
         [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
       const displayName =
         u.name || fullName || u.username || u.login || u.email || `Користувач ${idx + 1}`;
-      const roleRaw = String(u.role ?? u.user_role ?? '').toLowerCase() as Role;
+      const roleRaw = String(u.role ?? u.user_role ?? 'user').toLowerCase() as Role;
 
       return {
         id: u.id ?? u.user_id ?? idx,
@@ -382,9 +472,11 @@ async function fetchUsers(role?: Role): Promise<UserRow[]> {
       } as UserRow;
     });
 
-    return role && role !== 'all' ? out.filter((r) => String(r.role) === String(role)) : out;
+    return role && role !== 'all'
+      ? mappedFallback.filter((r) => String(r.role) === String(role))
+      : mappedFallback;
   } catch (e) {
-    console.warn('Users proxy error, fallback to demo:', e);
+    console.warn('Users proxy/upstream error, fallback to demo:', e);
     return demoUsers.filter((u) => !role || role === 'all' || String(u.role) === String(role));
   }
 }
@@ -413,12 +505,54 @@ async function fetchPayments(): Promise<PaymentRow[]> {
 
 async function fetchProducts(): Promise<ProductRow[]> {
   try {
-    const url = 'https://api.alluresallol.com/product/all';
-    const res = await fetch(url, { cache: 'no-store', headers: { accept: 'application/json' } });
-    if (!res.ok) throw new Error(`Products ${res.status}`);
-    const json = await res.json();
-    const items: any[] = Array.isArray(json?.items) ? json.items : Array.isArray(json) ? json : (json?.results ?? []);
-    return (items || []).map((p: any) => ({
+    const qs = `limit=1000&offset=0&sort=-id`;
+    const endpoints = [
+      // ✅ Требование: сначала пробуем корневой эндпоинт
+      `https://api.alluresallol.com/product/`,
+      `https://api.alluresallol.com/product`,
+      // Дальше — типовые листинги
+      `https://api.alluresallol.com/product/products?${qs}`,
+      `https://api.alluresallol.com/product/products/?${qs}`,
+      // Фолбэк на старый all
+      `https://api.alluresallol.com/product/all`,
+    ];
+
+    const tryFetch = async (url: string) => {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 12000);
+        const res = await fetch(url, { cache: 'no-store', headers: { accept: 'application/json' }, signal: ctrl.signal });
+        clearTimeout(t);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    };
+
+    let data: any = null;
+    for (const u of endpoints) {
+      const json = await tryFetch(u);
+      if (json) { data = json; break; }
+    }
+    if (!data) return [];
+
+    // Универсальная вытяжка массива товаров из разных структур ответа
+    const list: any[] = Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data?.products)
+      ? data.products
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.results?.items)
+      ? data.results.items
+      : Array.isArray(data)
+      ? data
+      : [];
+
+    return (list || []).map((p: any) => ({
       id: p.id,
       company_id: p.company_id,
       name: String(p.name ?? ''),
@@ -482,11 +616,35 @@ async function fetchReviewsByProduct(productId: number | string): Promise<Produc
       pos_score: Number(r.pos_score ?? 0),
       neg_score: Number(r.neg_score ?? 0),
       created_at: r.created_at ?? undefined,
+      status: normalizeReviewStatus(r.status ?? r.review_status),
     }));
   } catch (e) {
     console.warn('fetchReviewsByProduct error:', e);
     return [];
   }
+}
+
+async function updateReviewStatus(reviewId: number | string, status: string): Promise<void> {
+  status = normalizeReviewStatus(status);
+  const enc = encodeURIComponent(String(status).toUpperCase());
+  const base = `https://api.alluresallol.com/review/update-status/${reviewId}`;
+  const attempts = [
+    { method: 'POST', url: `${base}?status=${enc}` },
+    { method: 'PATCH', url: `${base}?status=${enc}` },
+    { method: 'PUT', url: `${base}?status=${enc}` },
+    { method: 'GET', url: `${base}?status=${enc}` },
+  ] as const;
+  let lastErr: any = null;
+  for (const a of attempts) {
+    try {
+      const res = await fetch(a.url, { method: a.method, cache: 'no-store', headers: { accept: 'application/json' } });
+      if (res.ok) return; // success
+      lastErr = new Error(`${a.method} ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Update review status failed');
 }
 
 async function fetchCategoriesAll(): Promise<CategoryOption[]> {
@@ -524,36 +682,150 @@ async function fetchCategoriesAll(): Promise<CategoryOption[]> {
 }
 
 async function loadProductById(id: number | string): Promise<ProductRow | null> {
-  try {
-    const res = await fetch(`https://api.alluresallol.com/product/${id}`, {
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-    });
-    if (!res.ok) return null;
-    const p = await res.json();
-    return {
-      id: p.id,
-      company_id: p.company_id,
-      name: String(p.name ?? ''),
-      description: typeof p.description === 'string' ? p.description : undefined,
-      price: Number(p.price ?? 0),
-      status: p.status ?? undefined,
-      current_inventory: typeof p.current_inventory === 'number' ? p.current_inventory : Number(p.current_inventory ?? 0) || undefined,
-      category_id: p.category_id ?? undefined,
-      category_name: p.category_name ?? undefined,
-      old_price: typeof p.old_price === 'number' ? p.old_price : Number(p.old_price ?? 0) || undefined,
-      image: typeof p.image === 'string' ? p.image : undefined,
-      subcategory: p.subcategory ?? undefined,
-      product_type: p.product_type ?? undefined,
-      is_hit: Boolean(p.is_hit),
-      is_discount: Boolean(p.is_discount),
-      is_new: Boolean(p.is_new),
-      created_at: p.created_at ?? undefined,
-      updated_at: p.updated_at ?? undefined,
-    };
-  } catch {
-    return null;
+  const pid = String(id);
+
+  const endpoints = [
+    `https://api.alluresallol.com/product/${pid}`,
+    `https://api.alluresallol.com/product/${pid}/`,
+    `https://api.alluresallol.com/product/products/${pid}`,
+    `https://api.alluresallol.com/product/products/${pid}/`,
+    `https://api.alluresallol.com/product?id=${encodeURIComponent(pid)}`,
+  ];
+
+  const tryFetch = async (url: string): Promise<any | null> => {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const res = await fetch(url, { cache: 'no-store', headers: { accept: 'application/json' }, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  };
+
+  // 1) Try direct item endpoints first
+  for (const u of endpoints) {
+    const data = await tryFetch(u);
+    if (!data) continue;
+
+    const directObj = (!Array.isArray(data) && typeof data === 'object') ? data : null;
+    if (directObj && (directObj.id !== undefined || directObj.name !== undefined)) {
+      const p = directObj as any;
+      return {
+        id: p.id ?? id,
+        company_id: p.company_id,
+        name: String(p.name ?? ''),
+        description: typeof p.description === 'string' ? p.description : undefined,
+        price: Number(p.price ?? 0),
+        status: p.status ?? undefined,
+        current_inventory: typeof p.current_inventory === 'number' ? p.current_inventory : Number(p.current_inventory ?? 0) || undefined,
+        category_id: p.category_id ?? undefined,
+        category_name: p.category_name ?? undefined,
+        old_price: typeof p.old_price === 'number' ? p.old_price : Number(p.old_price ?? 0) || undefined,
+        image: typeof p.image === 'string' ? p.image : undefined,
+        subcategory: p.subcategory ?? undefined,
+        product_type: p.product_type ?? undefined,
+        is_hit: Boolean(p.is_hit),
+        is_discount: Boolean(p.is_discount),
+        is_new: Boolean(p.is_new),
+        created_at: p.created_at ?? undefined,
+        updated_at: p.updated_at ?? undefined,
+      } as ProductRow;
+    }
+
+    const arr: any[] = Array.isArray((data as any)?.items)
+      ? (data as any).items
+      : Array.isArray((data as any)?.results)
+      ? (data as any).results
+      : Array.isArray((data as any)?.products)
+      ? (data as any).products
+      : Array.isArray((data as any)?.data)
+      ? (data as any).data
+      : Array.isArray(data)
+      ? (data as any)
+      : [];
+
+    if (arr.length) {
+      const hit = arr.find((x: any) => String(x?.id) === pid) || arr.find((x: any) => Number(x?.id) === Number(pid));
+      if (hit) {
+        const p = hit as any;
+        return {
+          id: p.id ?? id,
+          company_id: p.company_id,
+          name: String(p.name ?? ''),
+          description: typeof p.description === 'string' ? p.description : undefined,
+          price: Number(p.price ?? 0),
+          status: p.status ?? undefined,
+          current_inventory: typeof p.current_inventory === 'number' ? p.current_inventory : Number(p.current_inventory ?? 0) || undefined,
+          category_id: p.category_id ?? undefined,
+          category_name: p.category_name ?? undefined,
+          old_price: typeof p.old_price === 'number' ? p.old_price : Number(p.old_price ?? 0) || undefined,
+          image: typeof p.image === 'string' ? p.image : undefined,
+          subcategory: p.subcategory ?? undefined,
+          product_type: p.product_type ?? undefined,
+          is_hit: Boolean(p.is_hit),
+          is_discount: Boolean(p.is_discount),
+          is_new: Boolean(p.is_new),
+          created_at: p.created_at ?? undefined,
+          updated_at: p.updated_at ?? undefined,
+        } as ProductRow;
+      }
+    }
   }
+
+  // 2) Fallback: list endpoints, then find item locally
+  const qs = `limit=1000&offset=0&sort=-id`;
+  const listEndpoints = [
+    `https://api.alluresallol.com/product/`,
+    `https://api.alluresallol.com/product`,
+    `https://api.alluresallol.com/product/products?${qs}`,
+    `https://api.alluresallol.com/product/products/?${qs}`,
+  ];
+
+  for (const u of listEndpoints) {
+    const data = await tryFetch(u);
+    if (!data) continue;
+    const arr: any[] = Array.isArray((data as any)?.items)
+      ? (data as any).items
+      : Array.isArray((data as any)?.results)
+      ? (data as any).results
+      : Array.isArray((data as any)?.products)
+      ? (data as any).products
+      : Array.isArray((data as any)?.data)
+      ? (data as any).data
+      : Array.isArray(data)
+      ? (data as any)
+      : [];
+    if (!arr.length) continue;
+    const hit = arr.find((x: any) => String(x?.id) === pid) || arr.find((x: any) => Number(x?.id) === Number(pid));
+    if (hit) {
+      const p = hit as any;
+      return {
+        id: p.id ?? id,
+        company_id: p.company_id,
+        name: String(p.name ?? ''),
+        description: typeof p.description === 'string' ? p.description : undefined,
+        price: Number(p.price ?? 0),
+        status: p.status ?? undefined,
+        current_inventory: typeof p.current_inventory === 'number' ? p.current_inventory : Number(p.current_inventory ?? 0) || undefined,
+        category_id: p.category_id ?? undefined,
+        category_name: p.category_name ?? undefined,
+        old_price: typeof p.old_price === 'number' ? p.old_price : Number(p.old_price ?? 0) || undefined,
+        image: typeof p.image === 'string' ? p.image : undefined,
+        subcategory: p.subcategory ?? undefined,
+        product_type: p.product_type ?? undefined,
+        is_hit: Boolean(p.is_hit),
+        is_discount: Boolean(p.is_discount),
+        is_new: Boolean(p.is_new),
+        created_at: p.created_at ?? undefined,
+        updated_at: p.updated_at ?? undefined,
+      } as ProductRow;
+    }
+  }
+
+  return null;
 }
 
 async function updateProduct(id: number | string, payload: Partial<ProductRow>): Promise<ProductRow> {
@@ -768,16 +1040,16 @@ export default function AdminPanelPage() {
   const [productsLoading, setProductsLoading] = React.useState(false);
   const [productsOrder, setProductsOrder] = React.useState<'asc' | 'desc'>('desc');
 
-  // Reviews
-  const [reviews, setReviews] = React.useState<ReviewRow[]>([]);
-  const [reviewsLoading, setReviewsLoading] = React.useState(false);
-  const [reviewsOrder, setReviewsOrder] = React.useState<'asc' | 'desc'>('desc');
 
   // Product → Reviews tab state
   const [prodReviewsProductId, setProdReviewsProductId] = React.useState<number | string | null>(null);
   const [prodReviews, setProdReviews] = React.useState<ProductReview[]>([]);
   const [prodReviewsLoading, setProdReviewsLoading] = React.useState(false);
   const [prodReviewsErr, setProdReviewsErr] = React.useState<string | null>(null);
+  const [reviewStatusBusy, setReviewStatusBusy] = React.useState<Record<string, boolean>>({});
+  const [reviewStatusErr, setReviewStatusErr] = React.useState<string | null>(null);
+  const setBusy = (id: number | string, v: boolean) =>
+    setReviewStatusBusy((prev) => ({ ...prev, [String(id)]: v }));
   const openProductReviews = async (id: number | string) => {
     setProdReviewsErr(null);
     setProdReviews([]);
@@ -832,10 +1104,6 @@ export default function AdminPanelPage() {
     return arr.sort((a, b) => (productsOrder === 'asc' ? cmpId(a.id, b.id) : cmpId(b.id, a.id)));
   }, [products, productsOrder]);
 
-  const reviewsView = React.useMemo(() => {
-    const arr = Array.isArray(reviews) ? reviews.slice() : [];
-    return arr.sort((a, b) => (reviewsOrder === 'asc' ? cmpId(a.id, b.id) : cmpId(b.id, a.id)));
-  }, [reviews, reviewsOrder]);
 
   const catsView = React.useMemo(() => {
     const arr = Array.isArray(cats) ? cats.slice() : [];
@@ -1188,11 +1456,29 @@ export default function AdminPanelPage() {
       }
       if (tab === 3) {
         try {
-          setReviewsLoading(true);
-          const data = await fetchReviews();
-          if (alive) setReviews(data);
+          setCatsLoading(true);
+          setCatsErr(null);
+          const res = await fetch('https://api.alluresallol.com/product/categories', { cache: 'no-store', headers: { accept: 'application/json' } });
+          if (!res.ok) throw new Error(`Categories ${res.status}`);
+          const json = await res.json();
+          const items: any[] = Array.isArray(json?.items) ? json.items : Array.isArray(json) ? json : (json?.results ?? []);
+          const mapped: CategoryRow[] = (items || []).map((c: any, i: number) => ({
+            id: c.id ?? c.category_id ?? i,
+            name: c.name ?? c.category_name ?? c.title ?? c.label ?? '—',
+            description: c.description ?? c.desc ?? '',
+            parent_id: c.parent_id ?? c.parent ?? null,
+            updated_at: c.updated_at ?? c.modified_at ?? undefined,
+            created_at: c.created_at ?? undefined,
+            subcategory: c.subcategory ?? '',
+            product_type: c.product_type ?? '',
+            category_id: c.category_id ?? (typeof c.id === 'number' ? c.id : undefined),
+            category_name: c.category_name ?? c.name ?? undefined,
+          }));
+          if (alive) setCats(mapped);
+        } catch (e: any) {
+          if (alive) setCatsErr(e?.message || 'Помилка завантаження категорій');
         } finally {
-          if (alive) setReviewsLoading(false);
+          if (alive) setCatsLoading(false);
         }
       }
       if (tab === 4) {
@@ -1222,7 +1508,7 @@ export default function AdminPanelPage() {
           if (alive) setCatsLoading(false);
         }
       }
-      if (tab === 5) {
+      if (tab === 4) {
         try {
           setProductsLoading(true);
           const list = await fetchProducts();
@@ -1245,12 +1531,11 @@ export default function AdminPanelPage() {
             <Tab label="Користувачі" />
             <Tab label="Платежі" />
             <Tab label="Товари" />
-            <Tab label="Відгуки" />
             <Tab label="Категорії" />
             <Tab label="Відгуки по товарах" />
           </Tabs>
             {/* Products → Reviews */}
-            <TabPanel value={tab} index={5}>
+            <TabPanel value={tab} index={4}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 {/* Left: products list */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1299,7 +1584,7 @@ export default function AdminPanelPage() {
                   <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
                     Відгуки {prodReviewsProductId ? <>для товару <code>#{String(prodReviewsProductId)}</code></> : null}
                   </Typography>
-
+                  {reviewStatusErr && <Alert severity="error" sx={{ mb: 1 }}>{reviewStatusErr}</Alert>}
                   {!prodReviewsProductId ? (
                     <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
                       Оберіть товар зліва, щоб переглянути відгуки.
@@ -1320,6 +1605,7 @@ export default function AdminPanelPage() {
                             <TableCell>ID</TableCell>
                             <TableCell>Користувач</TableCell>
                             <TableCell>Текст</TableCell>
+                            <TableCell>Статус</TableCell>
                             <TableCell>Тональність</TableCell>
                             <TableCell align="right">POS</TableCell>
                             <TableCell align="right">NEG</TableCell>
@@ -1332,6 +1618,31 @@ export default function AdminPanelPage() {
                               <TableCell>{r.id}</TableCell>
                               <TableCell>{r.user_id}</TableCell>
                               <TableCell>{r.text}</TableCell>
+                              <TableCell>
+                                <FormControl size="small" fullWidth>
+                                  <Select
+                                    value={(r.status as any) || 'PENDING'}
+                                    onChange={async (e) => {
+                                      const next = String(e.target.value);
+                                      setReviewStatusErr(null);
+                                      setBusy(r.id, true);
+                                      try {
+                                        await updateReviewStatus(r.id, next);
+                                        setProdReviews((prev) => prev.map((x) => (String(x.id) === String(r.id) ? { ...x, status: next as any } : x)));
+                                      } catch (err: any) {
+                                        setReviewStatusErr(err?.message || 'Не вдалося оновити статус відгуку');
+                                      } finally {
+                                        setBusy(r.id, false);
+                                      }
+                                    }}
+                                    disabled={!!reviewStatusBusy[String(r.id)]}
+                                  >
+                                    {Array.from(REVIEW_STATUSES).map((s) => (
+                                      <MenuItem key={s} value={s}>{s}</MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              </TableCell>
                               <TableCell>
                                 <Chip
                                   size="small"
@@ -1543,55 +1854,9 @@ export default function AdminPanelPage() {
               )}
             </TabPanel>
 
-            {/* Reviews */}
-            <TabPanel value={tab} index={3}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={2}>
-                <FormControl sx={{ minWidth: 220 }} size="small">
-                  <InputLabel id="reviews-sort-id">Сортування ID</InputLabel>
-                  <Select labelId="reviews-sort-id" label="Сортування ID" value={reviewsOrder} onChange={(e) => setReviewsOrder(e.target.value as 'asc' | 'desc')}>
-                    <MenuItem value="desc">За спаданням (9 → 1)</MenuItem>
-                    <MenuItem value="asc">За зростанням (1 → 9)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Stack>
-              {reviewsLoading ? (
-                <Stack alignItems="center" py={4}><CircularProgress /></Stack>
-              ) : (
-                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>ID</TableCell>
-                        <TableCell>Товар</TableCell>
-                        <TableCell>Користувач</TableCell>
-                        <TableCell>Оцінка</TableCell>
-                        <TableCell>Коментар</TableCell>
-                        <TableCell>Створено</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {reviewsView.map((r) => (
-                        <TableRow key={r.id} hover>
-                          <TableCell>{r.id}</TableCell>
-                          <TableCell>{r.product}</TableCell>
-                          <TableCell>{r.user}</TableCell>
-                          <TableCell>
-                            <Stack direction="row" spacing={0.5}>
-                              {Array.from({ length: 5 }).map((_, i) => <span key={i}>{i < r.rating ? '★' : '☆'}</span>)}
-                            </Stack>
-                          </TableCell>
-                          <TableCell>{r.comment || '—'}</TableCell>
-                          <TableCell>{r.created_at ? new Date(r.created_at).toLocaleString('uk-UA') : '—'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </TabPanel>
 
             {/* Categories with edit on row click */}
-            <TabPanel value={tab} index={4}>
+            <TabPanel value={tab} index={3}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
                 <FormControl sx={{ minWidth: 220 }} size="small">
                   <InputLabel id="cats-sort-id">Сортування ID</InputLabel>

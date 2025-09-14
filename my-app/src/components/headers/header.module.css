@@ -305,3 +305,65 @@
 .MuiListItem-root { padding-left: 4px; padding-right: 4px; }
 .MuiListItemText-primary { font-size: 14px; line-height: 1.2; }
 .MuiListItemText-secondary { font-size: 13px; color: #1a5eff; }
+
+/* =====================
+   Header: Responsive / Mobile polish
+   ===================== */
+
+/* Large tablets / small desktops */
+@media (max-width: 1200px) {
+  .topBar { padding: 8px 24px; font-size: 13px; }
+  .leftLinks { gap: 14px; }
+  .middleBar { padding: 16px 24px; }
+  .logo { font-size: 32px; }
+  .searchBlock { margin: 0 24px; border-radius: 6px; }
+  .iconBlock { gap: 16px; font-size: 18px; }
+}
+
+/* Tablets */
+@media (max-width: 992px) {
+  .topBar { padding: 8px 20px; }
+  .leftLinks { gap: 12px; flex-wrap: wrap; }
+  .catalogBar { font-size: 16px; padding: 12px 24px 12px 16px; }
+  .middleBar { padding: 14px 20px; }
+  .logo { font-size: 28px; }
+  .searchBlock { margin: 0 16px; }
+}
+
+/* Large phones / small tablets */
+@media (max-width: 768px) {
+  .header { position: sticky; top: 0; z-index: 1100; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+
+  .topBar { padding: 6px 14px; font-size: 12px; }
+  .leftLinks { gap: 10px; }
+
+  .middleBar { padding: 12px 14px; flex-direction: column; align-items: stretch; gap: 10px; }
+  .logo { font-size: 24px; text-align: center; }
+
+  .searchBlock { margin: 0; border-radius: 8px; }
+  .searchBlock input { padding: 12px; font-size: 14px; }
+  .searchBlock button { padding: 10px 12px; }
+
+  .iconBlock { justify-content: center; gap: 14px; font-size: 18px; }
+
+  /* Dropdown attaches neatly to the field on mobile */
+  .searchDropdownContainer { top: calc(100% + 6px); border-radius: 10px; box-shadow: 0 10px 26px rgba(0,0,0,0.14); }
+  .suggestionItem { padding: 10px 10px; }
+  .suggestionName { font-size: 13px; }
+  .suggestionPrice { font-size: 12px; }
+}
+
+/* Phones */
+@media (max-width: 480px) {
+  .topBar { padding: 6px 10px; font-size: 12px; }
+  .middleBar { padding: 10px 10px; gap: 8px; }
+  .logo { font-size: 22px; }
+  .catalogBar { font-size: 15px; padding: 10px 14px 10px 12px; }
+
+  .iconBlock { gap: 12px; font-size: 18px; }
+
+  /* Compact suggestions for small screens */
+  .suggestionThumbBox { width: 24px; height: 24px; }
+  .suggestionName { font-size: 12.5px; }
+  .suggestionPrice { font-size: 12px; }
+}

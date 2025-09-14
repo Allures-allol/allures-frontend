@@ -28,18 +28,102 @@ export type Product = {
   category_id?: number | null;
 };
 
+// Helper: read Allures JWT from localStorage (supports several common key names)
+const getStoredAlluresToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const keys = ['allures_jwt', 'alluresJwt', 'authToken', 'token', 'jwt'];
+  for (const k of keys) {
+    const v = localStorage.getItem(k);
+    if (v && String(v).trim()) return String(v).trim();
+  }
+  // As a fallback, scan for any value that looks like a JWT (xxx.yyy.zzz)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) as string;
+      const val = localStorage.getItem(key) || '';
+      if (/\b[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b/.test(val)) return val.trim();
+    }
+  } catch {}
+  return null;
+};
+
 // Robust product search that works through local proxies first and then falls back to public API.
 async function searchProducts(query: string, signal?: AbortSignal): Promise<Product[]> {
   const q = query.trim();
   if (!q) return [];
 
+  // Normalization helper for case-insensitive, diacritics-insensitive, trimmed matching
+  const norm = (s: any) => String(s ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // If user typed a numeric ID, try to fetch that exact product and return it alone
+  if (/^\d+$/.test(q)) {
+    const singleEndpoints = [
+      `https://api.alluresallol.com/product/${q}`,
+      `https://api.alluresallol.com/product/${q}/`,
+      `https://api.alluresallol.com/product/products/${q}`,
+      `https://api.alluresallol.com/product/products/${q}/`,
+      `https://api.alluresallol.com/product?id=${encodeURIComponent(q)}`,
+    ];
+    const tryFetchSingle = async (url: string) => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10000);
+        const r = await fetch(url, { signal: ctrl.signal, cache: 'no-store', headers: { accept: 'application/json' } });
+        clearTimeout(timer);
+        if (!r.ok) return null;
+        const data = await r.json();
+        const arr = Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data?.products)
+          ? data.products
+          : Array.isArray(data)
+          ? data
+          : [];
+        const obj = (!Array.isArray(data) && typeof data === 'object') ? data : null;
+        const raw = obj && (obj.id !== undefined || obj.name !== undefined)
+          ? obj
+          : (arr.find((p: any) => String(p?.id) === q) || null);
+        if (!raw) return null;
+        return [{
+          id: raw?.id ?? raw?.product_id ?? (raw?.slug ? String(raw.slug) : ''),
+          name: raw?.name ?? raw?.title ?? '',
+          image: raw?.image ?? (Array.isArray(raw?.images) ? raw.images[0] : null) ?? null,
+          price: typeof raw?.price === 'number' ? raw.price : (raw?.price ? Number(raw.price) : null),
+          category_id: raw?.category_id ?? null,
+        } as Product];
+      } catch {
+        return null;
+      }
+    };
+    for (const u of singleEndpoints) {
+      const one = await tryFetchSingle(u);
+      if (one && one.length) return one;
+    }
+  }
+
   const endpoints = [
-    `/api/search?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
-    `/api/products?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
-    `/api/product/products?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
-    // direct backend as a fallback (may be blocked by CORS in browser, but OK if rewrites exist)
-    `https://api.alluresallol.com/product/products/?q=${encodeURIComponent(q)}&limit=10&offset=0&sort=-id`,
-    // full-dump fallbacks (filter on client)
+    // ✅ Use the root endpoint you specified first
+    `https://api.alluresallol.com/product/?search=${encodeURIComponent(q)}`,
+    `https://api.alluresallol.com/product/?q=${encodeURIComponent(q)}`,
+    // Fallback to root without query (we will filter client-side)
+    `https://api.alluresallol.com/product/`,
+    `https://api.alluresallol.com/product`,
+    // Additional known list endpoints as secondary options
+    `https://api.alluresallol.com/product/products/?search=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
+    `https://api.alluresallol.com/product/products/?q=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
+    // Local proxies (keep last to avoid 404 noise if not configured)
+    `/api/search?q=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
+    `/api/product/products?search=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
+    `/api/product/products?q=${encodeURIComponent(q)}&limit=50&offset=0&sort=-id`,
+    // Full dump fallbacks (client-side filter)
     `/api/products-all`,
     `https://api.alluresallol.com/product/all`,
   ];
@@ -48,6 +132,7 @@ async function searchProducts(query: string, signal?: AbortSignal): Promise<Prod
     if (Array.isArray(data?.items)) return data.items;
     if (Array.isArray(data?.results)) return data.results;
     if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.products)) return data.products;
     if (Array.isArray(data)) return data;
     return [];
   };
@@ -67,12 +152,17 @@ async function searchProducts(query: string, signal?: AbortSignal): Promise<Prod
       const json = await res.json();
       let list = mapList(json).map(mapProduct);
 
-      // If endpoint doesn't support q (e.g., /product/all), filter on client
-      if (/product\/all$/.test(url) || /products-all$/.test(url)) {
-        const needle = q.toLowerCase();
-        list = list.filter((p) => (p.name || '').toLowerCase().includes(needle)).slice(0, 10);
-      }
+      // 1) Exact match by normalized product name → return only that one item
+      const nQ = norm(q);
+      const exact = list.find((p) => norm(p.name) === nQ);
+      if (exact) return [exact];
 
+      // 2) Otherwise, client-side contains filtering by normalized name
+      let filtered = list.filter((p) => norm(p.name).includes(nQ));
+      if (filtered.length) list = filtered;
+
+      // Limit suggestions to keep dropdown tidy
+      if (list.length > 10) list = list.slice(0, 10);
       if (list.length) return list;
     } catch {
       // try next candidate
@@ -265,33 +355,15 @@ export default function Header() {
   };
 
   useEffect(() => {
-    // Example: check for an auth token in localStorage
-    const token = localStorage.getItem('authToken');
+    const token = getStoredAlluresToken();
     setIsAuthenticated(!!token);
   }, []);
 
-  const handleUserClick = async () => {
-    try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      if (!token) {
-        router.push('/auth');
-        return;
-      }
-      const res = await fetch('https://api.alluresallol.com/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          accept: 'application/json',
-        },
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        router.push('/profile');
-      } else {
-        // токен недействителен — очищаем и отправляем на авторизацию
-        localStorage.removeItem('authToken');
-        router.push('/auth');
-      }
-    } catch {
+  const handleUserClick = () => {
+    const token = getStoredAlluresToken();
+    if (token) {
+      router.push('/profile');
+    } else {
       router.push('/auth');
     }
   };
@@ -419,14 +491,32 @@ export default function Header() {
               )}
               PopperComponent={(popperProps) => <Popper {...popperProps} sx={{ width: '100%' }} />}
             />
-            <IconButton aria-label="search" onClick={() => inputValue.trim() && router.push(`/search?q=${encodeURIComponent(inputValue.trim())}`)}>
+            <IconButton
+              aria-label="search"
+              onClick={() => {
+                const q = inputValue.trim();
+                if (!q) return;
+                // If numeric ID — go straight to product page
+                if (/^\d+$/.test(q)) { router.push(`/products/${q}`); return; }
+                // If exactly one option and it matches the query by name — go to that product
+                const exact = options.find(o => (o?.name || '').toLowerCase() === q.toLowerCase());
+                if (exact) { router.push(`/products/${exact.id}`); return; }
+                // Otherwise open the search page
+                router.push(`/search?q=${encodeURIComponent(q)}`);
+              }}
+            >
               <SearchRoundedIcon />
             </IconButton>
           </Box>
         </div>
 
         <div className={styles.iconBlock}>
-          <FaHeart />
+          <FaHeart
+            aria-label="Wishlist"
+            title="Список бажань"
+            style={{ cursor: 'pointer' }}
+            onClick={() => router.push('/wishlist')}
+          />
           <FaShoppingBag
             aria-label="Cart"
             style={{ cursor: 'pointer' }}
@@ -473,14 +563,17 @@ export default function Header() {
                   <Box sx={{ p: 2, color: '#6b7280' }}>Категорії відсутні або тимчасово недоступні</Box>
                 )}
                 {categories.map((cat) => {
-                  const cid = (cat.id ?? cat.category_id) as any;
+                  const cid = (typeof cat.category_id === 'number'
+                    ? cat.category_id
+                    : (typeof cat.id === 'number' ? cat.id : (cat.id ?? cat.name)));
                   return (
                     <Link
                       key={String(cid)}
-                      href={`/category/${encodeURIComponent(String(cid))}`}
+                      href={`/products?category=${encodeURIComponent(String(cid))}`}
                       onClick={handleCloseCats}
                       className={styles.dropdownItem}
                       style={{ textDecoration: 'none', color: 'inherit' }}
+                      prefetch={false}
                     >
                       <ListItemButton>
                         <ListItemText
