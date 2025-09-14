@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Header from '@/components/headers/header';
 import Footer from '@/components/footers/footer';
 import './favorites.module.css';
@@ -40,7 +41,7 @@ function imgSrc(u?: string | null): string {
 }
 
 // Fallback on broken images
-const handleImgError: React.ReactEventHandler<HTMLImageElement> = (e) => {
+const handleImgError = (e: any) => {
   e.currentTarget.src = '/placeholder.png';
 };
 
@@ -228,30 +229,33 @@ export default function FavoritesPage() {
 
                         {item.href ? (
                           <Link href={item.href} className="wishlist-item__link" aria-label={item.name}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                            <Image
                               src={imgSrc(item.image)}
                               alt={item.name}
                               className="wishlist-item__image"
                               width={96}
                               height={96}
+                              unoptimized
                               loading="lazy"
                               referrerPolicy="no-referrer"
                               onError={handleImgError}
+                              style={{ objectFit: 'contain' }}
                             />
                             <span className="wishlist-item__name">{item.name}</span>
                           </Link>
                         ) : (
                           <div className="wishlist-item__link" aria-label={item.name}>
-                            <img
+                            <Image
                               src={imgSrc(item.image)}
                               alt={item.name}
                               className="wishlist-item__image"
                               width={96}
                               height={96}
+                              unoptimized
                               loading="lazy"
                               referrerPolicy="no-referrer"
                               onError={handleImgError}
+                              style={{ objectFit: 'contain' }}
                             />
                             <span className="wishlist-item__name">{item.name}</span>
                           </div>
