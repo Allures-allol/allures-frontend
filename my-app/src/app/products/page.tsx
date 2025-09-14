@@ -691,6 +691,7 @@ function CategoryPageInner({ params }: any) {
                     alt={p.name}
                     width={600}
                     height={400}
+                    unoptimized
                     className={styles.image}
                     style={{ objectFit: 'contain' }}
                   />

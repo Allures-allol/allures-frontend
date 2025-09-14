@@ -500,6 +500,7 @@ export default function ProductDetailPage() {
                 alt={product.name}
                 width={800}
                 height={800}
+                unoptimized
                 style={{ borderRadius: 8, objectFit: 'contain', width: '100%', height: 'auto', display: 'block' }}
               />
               <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 6 }}>
