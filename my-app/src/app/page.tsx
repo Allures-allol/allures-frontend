@@ -5,6 +5,7 @@ import Footer from "../components/footers/footer";
 import Link from "next/link";
 import Partners from "../components/partners/partners";
 import Script from "next/script";
+export const runtime = 'nodejs';
 export const revalidate = 120; // Enable ISR: re-generate home every 2 minutes
 type Product = {
   id: number;
@@ -99,62 +100,74 @@ const catBtnActive: React.CSSProperties = {
 };
 
 async function getProducts(): Promise<Product[]> {
-  try {
-    const res = await fetch('https://api.alluresallol.com/product/all', {
-      method: 'GET',
-      // Use ISR so the page can be pre-rendered at build and revalidated later
-      next: { revalidate: 120 },
-    });
+  const urls = [
+    'https://api.alluresallol.com/product/',
+    'https://api.alluresallol.com/product',
+    'https://api.alluresallol.com/product?limit=60&offset=0&sort=-id',
+    'https://api.alluresallol.com/product/all',
+  ];
 
-    if (!res.ok) {
-      const raw = await res.text().catch(() => '');
-      console.error('API /product/all error:', res.status, res.statusText, raw.slice(0, 200));
-      return [];
+  const tryFetch = async (url: string) => {
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) {
+        const raw = await res.text().catch(() => '');
+        console.error('API product fetch error:', url, res.status, res.statusText, raw.slice(0, 160));
+        return null;
+      }
+      const data = await res.json().catch(() => null);
+      if (!data) return null;
+      const list: any[] = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.items)
+        ? (data as any).items
+        : Array.isArray((data as any)?.results)
+        ? (data as any).results
+        : Array.isArray((data as any)?.data)
+        ? (data as any).data
+        : [];
+      if (!Array.isArray(list)) return null;
+
+      const mapped: Product[] = list.map((p: any) => ({
+        id: Number(p.id ?? 0),
+        company_id: typeof p.company_id === 'number' ? p.company_id : undefined,
+        name: String(p.name ?? ''),
+        description: String(p.description ?? ''),
+        price: Number(p.price ?? 0),
+        old_price: Number(p.old_price ?? 0),
+        image: String(p.image ?? ''),
+        status: String(p.status ?? ''),
+        current_inventory: Number(p.current_inventory ?? 0),
+        is_hit: Boolean(p.is_hit),
+        is_discount: Boolean(p.is_discount),
+        is_new: Boolean(p.is_new),
+        created_at: String(p.created_at ?? ''),
+        updated_at: String(p.updated_at ?? ''),
+        category_id: Number(p.category_id ?? 0),
+        category_name: String(p.category_name ?? ''),
+        subcategory: String(p.subcategory ?? ''),
+        product_type: String(p.product_type ?? ''),
+      }));
+
+      // Newest first as a sensible default
+      mapped.sort((a, b) => (new Date(b.created_at).getTime() || 0) - (new Date(a.created_at).getTime() || 0));
+      return mapped;
+    } catch (err) {
+      console.error('fetch fail:', url, err);
+      return null;
     }
+  };
 
-    const data = await res.json();
-    const list: any[] = Array.isArray(data)
-      ? data
-      : Array.isArray((data as any)?.items)
-      ? (data as any).items
-      : Array.isArray((data as any)?.results)
-      ? (data as any).results
-      : [];
-
-    if (!Array.isArray(list)) return [];
-
-    // Берём только товары с картинкой, чтобы карточки выглядели корректно
-    const withImage = list.filter((p: any) => {
-      const s = String(p?.image ?? '').trim();
-      return s !== '' && !/^(\/)?product\/?$/i.test(s) && !/\/$/.test(s);
-    });
-
-    const mapped: Product[] = withImage.map((p: any) => ({
-      id: Number(p.id ?? 0),
-      company_id: typeof p.company_id === 'number' ? p.company_id : undefined,
-      name: String(p.name ?? ''),
-      description: String(p.description ?? ''),
-      price: Number(p.price ?? 0),
-      old_price: Number(p.old_price ?? 0),
-      image: String(p.image ?? ''),
-      status: String(p.status ?? ''),
-      current_inventory: Number(p.current_inventory ?? 0),
-      is_hit: Boolean(p.is_hit),
-      is_discount: Boolean(p.is_discount),
-      is_new: Boolean(p.is_new),
-      created_at: String(p.created_at ?? ''),
-      updated_at: String(p.updated_at ?? ''),
-      category_id: Number(p.category_id ?? 0),
-      category_name: String(p.category_name ?? ''),
-      subcategory: String(p.subcategory ?? ''),
-      product_type: String(p.product_type ?? ''),
-    }));
-
-    return mapped;
-  } catch (err) {
-    console.error('Ошибка при загрузке товаров (/product/all):', err);
-    return [];
+  for (const u of urls) {
+    const got = await tryFetch(u);
+    if (Array.isArray(got)) return got;
   }
+
+  return [];
 }
 
 export default async function Home() {
