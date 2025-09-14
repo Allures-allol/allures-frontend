@@ -135,8 +135,8 @@ function getProductsByCategory(
   const candidates = [
     `https://api.alluresallol.com/product/`,
     `https://api.alluresallol.com/product`,
-    `https://api.alluresallol.com/product/products?${qs}`,
-    `https://api.alluresallol.com/product/products/?${qs}`,
+  //  `https://api.alluresallol.com/product/products?${qs}`,
+  //  `https://api.alluresallol.com/product/products/?${qs}`,
   ];
 
   const tryFetch = async (url: string): Promise<{ data: any | null; error: string | null }> => {
@@ -220,8 +220,8 @@ async function getAllProducts(): Promise<{ products: Product[]; total: number }>
   const candidates = [
     `https://api.alluresallol.com/product/`,
     `https://api.alluresallol.com/product`,
-    `https://api.alluresallol.com/product/products?${qs}`,
-    `https://api.alluresallol.com/product/products/?${qs}`,
+  //  `https://api.alluresallol.com/product/products?${qs}`,
+  //  `https://api.alluresallol.com/product/products/?${qs}`,
   ];
 
   const tryFetch = async (url: string): Promise<{ data: any | null; error: string | null }> => {
