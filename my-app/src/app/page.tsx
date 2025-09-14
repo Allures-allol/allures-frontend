@@ -303,6 +303,33 @@ export default async function Home() {
     log('initialized');
   })();
 `}</Script>
+      <Script id="viewport-mobile-class" strategy="afterInteractive">{`
+        (function(){
+          try {
+            var d = document;
+            var head = d.head || d.getElementsByTagName('head')[0];
+            // Ensure viewport meta exists
+            if (!d.querySelector('meta[name="viewport"]')) {
+              var m = d.createElement('meta');
+              m.setAttribute('name', 'viewport');
+              m.setAttribute('content', 'width=device-width, initial-scale=1');
+              if (head) head.appendChild(m);
+            }
+            // Add html.isMobile when width <= 768
+            var resizeTimer;
+            function apply(){
+              var w = window.innerWidth || d.documentElement.clientWidth;
+              if (w <= 768) d.documentElement.classList.add('isMobile');
+              else d.documentElement.classList.remove('isMobile');
+            }
+            window.addEventListener('resize', function(){
+              clearTimeout(resizeTimer);
+              resizeTimer = setTimeout(apply, 150);
+            });
+            apply();
+          } catch(e) { /* noop */ }
+        })();
+      `}</Script>
       <Header />
       <div style={{ ...containerStyle, marginTop: 16 }}>
         <div className="bannersGrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
@@ -314,6 +341,42 @@ export default async function Home() {
               unoptimized
               style={{ objectFit: "cover", borderRadius: 16 }}
             />
+          </div>
+          {/* Mobile-only carousel */}
+          <div className="mobCarousel" aria-label="Популярні товари — карусель для мобільних">
+            <button className="snapPrev" aria-label="Попередній товар">‹</button>
+            <button className="snapNext" aria-label="Наступний товар">›</button>
+            <div className="snapRow">
+              {productsSafe.slice(0, 12).map((p) => (
+                <Link key={`m-${p.id}`} href={`/products/${p.id}`} className="snapItem" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div className="snapCard">
+                    <div className="snapImgWrap">
+                      <Image
+                        src={imgSrc(p.image)}
+                        alt={p.name || 'product'}
+                        width={600}
+                        height={320}
+                        unoptimized
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    </div>
+                    <div className="snapBody">
+                      <h3 className="snapTitle">{p.name}</h3>
+                      <div className="snapPrice">
+                        {p.is_discount && Number(p.old_price) > 0 ? (
+                          <>
+                            <span className="snapOld">{fmtUA(p.old_price)} ₴</span>
+                            <span className="snapNew">{fmtUA(p.price)} ₴</span>
+                          </>
+                        ) : (
+                          <span className="snapNew">{fmtUA(p.price)} ₴</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
           <div className="banner" style={{ width: "100%", height: 330, position: "relative", opacity: 1 }}>
             <Image
@@ -500,6 +563,45 @@ export default async function Home() {
       <Partners />
       <Footer />
       
+      <Script id="mob-carousel-ux" strategy="afterInteractive">{`
+        (function(){
+          try {
+            var root = document.querySelector('.mobCarousel');
+            if (!root) return;
+            var row = root.querySelector('.snapRow');
+            var prev = root.querySelector('.snapPrev');
+            var next = root.querySelector('.snapNext');
+            if (!row) return;
+
+            function cardWidth(){
+              var el = row.querySelector('.snapItem');
+              if (!el) return 280;
+              var r = el.getBoundingClientRect();
+              return r.width || 280;
+            }
+            function scrollStep(dir){
+              var gap = 10; // keep in sync with CSS
+              var w = cardWidth() + gap;
+              row.scrollBy({ left: dir * w, behavior: 'smooth' });
+            }
+            if (next) next.addEventListener('click', function(){ scrollStep(+1); });
+            if (prev) prev.addEventListener('click', function(){ scrollStep(-1); });
+
+            // Drag/Swipe scrolling
+            var isDown=false, startX=0, startScroll=0;
+            row.addEventListener('pointerdown', function(e){
+              isDown = true; startX = e.clientX; startScroll = row.scrollLeft;
+              row.classList.add('dragging');
+              try { row.setPointerCapture && row.setPointerCapture(e.pointerId); } catch(_){}
+            });
+            row.addEventListener('pointermove', function(e){ if(!isDown) return; row.scrollLeft = startScroll - (e.clientX - startX); });
+            function stop(){ isDown=false; row.classList.remove('dragging'); }
+            row.addEventListener('pointerup', stop);
+            row.addEventListener('pointercancel', stop);
+            row.addEventListener('mouseleave', function(){ if(isDown) stop(); });
+          } catch(err) { console.warn('[mob-carousel]', err); }
+        })();
+      `}</Script>
       <style>{`
         /* Base tweaks */
         html, body { overflow-x: hidden; }
@@ -609,6 +711,65 @@ export default async function Home() {
         /* Category chips hover/active polish */
         [data-cat-list] button { transition: transform .08s ease, box-shadow .2s ease; }
         [data-cat-list] button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(59,112,246,.18); }
+        /* ===== Mobile carousel (only on small screens) ===== */
+        .mobCarousel { display: none; }
+        html.isMobile .productsGrid { display: none !important; }
+        html.isMobile .mobCarousel { display: block; }
+
+        @media (max-width: 768px) {
+          /* Hide grid on mobile and show carousel */
+          .productsGrid { display: none !important; }
+          .mobCarousel { display: block; margin-top: 14px; }
+
+          .snapRow {
+            display: flex; gap: 10px; overflow-x: auto; padding: 2px 4px 12px;
+            scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+          }
+          .snapRow::-webkit-scrollbar { display: none; }
+
+          .snapItem { flex: 0 0 78vw; scroll-snap-align: start; }
+
+          .snapCard { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); padding: 12px; height: 100%; display: flex; flex-direction: column; }
+          .snapCard:active { transform: translateY(1px); }
+
+          .snapImgWrap { width: 100%; height: 200px; border-radius: 10px; overflow: hidden; background: #fff; }
+
+          .snapBody { display: grid; gap: 6px; margin-top: 10px; }
+          .snapTitle { margin: 0; font-size: 15px; line-height: 1.25; max-height: 2.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+          .snapPrice { display: flex; align-items: baseline; gap: 8px; }
+          .snapOld { text-decoration: line-through; opacity: .6; font-size: 13px; }
+          .snapNew { font-weight: 800; font-size: 16px; }
+        }
+        @media (max-width: 480px) {
+          .snapItem { flex-basis: 84vw; }
+          .snapImgWrap { height: 180px; }
+        }
+        /* ===== Mobile carousel controls & polish ===== */
+        @media (max-width: 768px) {
+          .mobCarousel { position: relative; }
+          .mobCarousel::before, .mobCarousel::after {
+            content: '';
+            position: absolute; top: 0; bottom: 0; width: 32px; pointer-events: none; z-index: 4;
+          }
+          .mobCarousel::before { left: 0; background: linear-gradient(90deg, #fafafa 0%, rgba(250,250,250,0) 100%); }
+          .mobCarousel::after  { right: 0; background: linear-gradient(270deg, #fafafa 0%, rgba(250,250,250,0) 100%); }
+
+          .snapPrev, .snapNext {
+            position: absolute; top: 40%; transform: translateY(-50%);
+            width: 36px; height: 36px; border-radius: 9999px; border: none; z-index: 5;
+            background: rgba(255,255,255,.95);
+            box-shadow: 0 6px 18px rgba(0,0,0,.16);
+            display: grid; place-items: center; font-size: 22px; line-height: 1; cursor: pointer;
+            transition: transform .12s ease, box-shadow .2s ease, opacity .2s ease;
+          }
+          .snapPrev { left: 6px; }
+          .snapNext { right: 6px; }
+          .snapPrev:active, .snapNext:active { transform: translateY(-50%) scale(.96); }
+
+          .snapRow { scroll-behavior: smooth; }
+          .snapRow.dragging { scroll-snap-type: none; cursor: grabbing; }
+        }
       `}</style>
     </>
   );

@@ -53,6 +53,22 @@ export type CartItem = {
 type CityOpt = { ref: string; name: string };
 type WhOpt = { ref: string; address: string; category?: string };
 
+// --------- Image URL normalizer (backend → absolute) ---------
+function imgSrc(u?: string | null): string {
+  try {
+    if (!u) return '/placeholder.png';
+    let s = String(u).trim();
+    if (!s) return '/placeholder.png';
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    if (s.startsWith('//')) return 'https:' + s;
+    // Common backend patterns (e.g., /uploads/... or just filename)
+    if (s.startsWith('/')) s = s.slice(1);
+    return `https://api.alluresallol.com/${s}`;
+  } catch {
+    return '/placeholder.png';
+  }
+}
+
 // ---------- Тип заказа и история ----------
 type Order = {
   orderId: string;
@@ -502,7 +518,7 @@ export default function OrdersPage() {
                             }
                           >
                             <Box sx={{ width: 56, height: 56, mr: 1, position: 'relative', flex: '0 0 auto' }}>
-                              <Image src={it.image || '/placeholder.png'} alt={it.name} fill style={{ objectFit: 'contain' }} />
+                              <Image src={imgSrc(it.image)} alt={it.name} fill unoptimized sizes="56px" style={{ objectFit: 'contain' }} />
                             </Box>
                             <ListItemText
                               primary={

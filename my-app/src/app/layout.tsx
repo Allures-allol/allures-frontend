@@ -12,7 +12,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://alluresallol.com';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'ALLURES — інтернет‑магазин',
     template: '%s | ALLURES',
@@ -32,6 +35,7 @@ export const metadata: Metadata = {
     description: 'ALLURES — інтернет‑магазин. Новинки, знижки та швидка доставка.',
     siteName: 'ALLURES',
     type: 'website',
+    url: SITE_URL,
     images: [
       { url: '/logo.png', width: 1200, height: 630, alt: 'ALLURES' },
     ],
