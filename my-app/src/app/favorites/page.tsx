@@ -19,7 +19,30 @@ type WishlistGroup = {
   items: Product[];     // товары в группе
 };
 
+
 const LS_KEY = 'wishlist:v1';
+
+const API_ORIGIN = 'https://api.alluresallol.com';
+
+// Normalize image URL (accepts absolute; converts relative backend paths to absolute; falls back to placeholder)
+function imgSrc(u?: string | null): string {
+  try {
+    if (!u) return '/placeholder.png';
+    let s = String(u).trim();
+    if (!s) return '/placeholder.png';
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    if (s.startsWith('//')) return 'https:' + s;
+    if (s.startsWith('/')) s = s.slice(1);
+    return `${API_ORIGIN}/${s}`;
+  } catch {
+    return '/placeholder.png';
+  }
+}
+
+// Fallback on broken images
+const handleImgError: React.ReactEventHandler<HTMLImageElement> = (e) => {
+  e.currentTarget.src = '/placeholder.png';
+};
 
 /** Набор данных по умолчанию — только для демонстрации. Потом можно будет подменить реальными товарами. */
 const DEFAULT_GROUPS: WishlistGroup[] = [
@@ -207,22 +230,28 @@ export default function FavoritesPage() {
                           <Link href={item.href} className="wishlist-item__link" aria-label={item.name}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={item.image}
+                              src={imgSrc(item.image)}
                               alt={item.name}
                               className="wishlist-item__image"
                               width={96}
                               height={96}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              onError={handleImgError}
                             />
                             <span className="wishlist-item__name">{item.name}</span>
                           </Link>
                         ) : (
                           <div className="wishlist-item__link" aria-label={item.name}>
                             <img
-                              src={item.image}
+                              src={imgSrc(item.image)}
                               alt={item.name}
                               className="wishlist-item__image"
                               width={96}
                               height={96}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              onError={handleImgError}
                             />
                             <span className="wishlist-item__name">{item.name}</span>
                           </div>
