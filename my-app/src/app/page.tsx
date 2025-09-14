@@ -404,7 +404,7 @@ export default async function Home() {
       <main style={{ background: "#fafafa" }}>
         <div style={{ ...containerStyle, padding: "20px 16px" }}>
           <h1 style={{ textAlign: "center", fontSize: 32, fontWeight: 700, margin: 0 }}>
-            Маркетплейс
+            Маркетплейс пайплайн
           </h1>
 
           <div className="productsGrid"
