@@ -2,7 +2,6 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   images: {
-    // Replaced deprecated `domains` with `remotePatterns`
     remotePatterns: [
       {
         protocol: 'https',
@@ -23,6 +22,14 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',           // фронт дергает /api/...
+        destination: 'https://api.alluresallol.com/product/:path*', // проксируем на /product
+      },
+    ];
   },
 };
 
